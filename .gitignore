@@ -1,0 +1,25 @@
+# Secrets (repo is public)
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# Data
+raw/
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Misc
+.DS_Store
+.ipynb_checkpoints/
