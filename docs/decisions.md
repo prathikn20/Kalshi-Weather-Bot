@@ -14,6 +14,7 @@ One line per decision: date, decision, reason. Newest at the bottom.
 - 2026-10-02: Python tooling: uv, ruff, pytest. Storage: Parquet queried with DuckDB.
 - 2026-10-02: Real money only after backtest plus several weeks of paper trading. Small fixed stake, never topped up after losses.
 - 2026-10-05: Python pinned to 3.12 (`>=3.12,<3.13`); ruff line-length 100 with DTZ rules to enforce timezone-aware datetimes.
+- 2026-10-07: Kalshi raw collection covers all cities using daily-frequency high-temperature title matching, hourly series discovery, and 60-second market/book ticks that skip overruns; archive every HTTP response in a UTC per-request envelope with the exact body text, preserving discovery, prices, volume, errors, and first availability for later parsing.
 
 ## Open (answer during the spike)
 
