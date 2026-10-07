@@ -48,3 +48,17 @@ Changes to `src/kwb/schemas.py`, `src/kwb/forecast/base.py`, or any signature be
 - **External APIs.** Verify endpoints, auth, and rate limits against the provider's current docs before writing client code; do not rely on memory. NWS (`api.weather.gov`) requires a descriptive `User-Agent` header.
 - **Scope.** Do the task asked. If you notice something out of scope, note it at the end instead of fixing it.
 - **Decisions.** When a task settles a design question, add one line to `docs/decisions.md` with the date and the reason.
+
+## Testing
+
+- Every task prompt lists required properties. Each one gets at least one
+  test that fails if the property is violated.
+- Test names are full sentences stating the property.
+- Test boundaries and invariants, not implementation details.
+- Every parser gets a test on a real saved raw response, trimmed small and
+  committed under tests/fixtures/, not only mocked data.
+- Never weaken or delete a failing test to make a task pass. Report it.
+- In your summary, for each required property: the test name, one plain
+  English line on what it checks, and proof it bites: temporarily break
+  the code so the property is violated, run the test, show the failure,
+  then revert.
