@@ -1,0 +1,15 @@
+[Unit]
+Description=Kalshi raw collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=prathik
+WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
+ExecStart=/home/prathik/.local/bin/uv run python -m kwb.collectors.kalshi
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
