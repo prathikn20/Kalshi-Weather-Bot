@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly raw compaction
+
+[Timer]
+# Ten minutes past the hour, after the previous hour's 5-minute grace window.
+OnCalendar=*-*-* *:10:00
+Persistent=true
+Unit=raw-compaction.service
+
+[Install]
+WantedBy=timers.target

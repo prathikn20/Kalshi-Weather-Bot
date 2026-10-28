@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Calibrated probabilistic forecaster and decision layer for Kalshi daily-high temperature markets."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "zstandard>=0.25.0",
+]
 
 [build-system]
 requires = ["hatchling"]
