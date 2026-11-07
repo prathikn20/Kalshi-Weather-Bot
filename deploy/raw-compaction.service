@@ -1,0 +1,12 @@
+[Unit]
+Description=Compact completed hours of raw collector files into zstd archives
+
+[Service]
+Type=oneshot
+User=prathik
+WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
+ExecStart=/home/prathik/.local/bin/uv run python -m kwb.ops.compact
+Environment=PYTHONUNBUFFERED=1
+# zstd level 19 is CPU-heavy; yield to the collector on the shared-core VM.
+Nice=10
+CPUWeight=20
