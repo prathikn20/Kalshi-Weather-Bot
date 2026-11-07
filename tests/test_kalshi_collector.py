@@ -728,3 +728,25 @@ def test_cycle_log_reports_requests_429s_and_token_estimate(setup_collector, mon
     assert (collector.request_count, collector.rate_limited_count) == (4, 1)
     assert collector.token_estimate == expected_tokens
     assert f"request_count=4 rate_limited=1 token_estimate={expected_tokens}" in caplog.text
+
+
+def test_only_markets_requests_are_spaced_a_quarter_second_apart(setup_collector, monkeypatch):
+    collector, clock = setup_collector
+    open_markets = {f"CITY{i}": market_tickers(f"C{i}", 30) for i in range(4)}
+    calls = mock_http(monkeypatch, clock, catalogue_handler(open_markets))
+    collector.run_cycle()
+
+    def gaps(path):
+        starts = [at for call_path, _, at in calls if call_path == path]
+        return [
+            following - previous for previous, following in zip(starts, starts[1:], strict=False)
+        ]
+
+    quarter = 0.25  # The agreed spacing, pinned so changing the constant cannot hide a break.
+    markets_gaps, batch_gaps = gaps("/markets"), gaps("/markets/orderbooks")
+    assert len(markets_gaps) == 3 and len(batch_gaps) == 2
+    assert min(markets_gaps) >= quarter - 1e-9
+    assert max(batch_gaps) < quarter
+    assert min(batch_gaps) >= kalshi.REQUEST_INTERVAL - 1e-9
+    first_batch = next(i for i, call in enumerate(calls) if call[0] == "/markets/orderbooks")
+    assert calls[first_batch][2] - calls[first_batch - 1][2] < quarter

@@ -34,6 +34,9 @@ BASE_URL = "https://external-api.kalshi.com/trade-api/v2"
 POLL_INTERVAL = 60.0
 SERIES_REFRESH_INTERVAL = 3600.0
 REQUEST_INTERVAL = 0.1  # Conservative 10 requests/s; public quota is undocumented.
+# Back-to-back /markets calls drew 429s after ~25 requests at 10/s (2026-11-07 live run);
+# the observed undocumented limit is ~4-5/s, so space only /markets starts 0.25 s apart.
+MARKETS_REQUEST_INTERVAL = 0.25
 REQUEST_TIMEOUT = 10.0
 MAX_ATTEMPTS = 3
 # Default token cost per request; GET /account/endpoint_costs lists no override for
@@ -121,6 +124,7 @@ class KalshiCollector:
         self.series_tickers: set[str] | None = None
         self.next_series_refresh = 0.0
         self.next_request = 0.0
+        self.next_markets_request = 0.0
         self.request_count = 0
         self.rate_limited_count = 0
         self.token_estimate = 0
@@ -164,10 +168,14 @@ class KalshiCollector:
             headers={"User-Agent": "Kalshi-Weather-Bot/0.1 (public weather data collector)"},
             method="GET",
         )
+        is_markets = path == "/markets"
         for attempt in range(MAX_ATTEMPTS):
-            self.sleep(max(0.0, self.next_request - self.monotonic()))
+            ready = max(self.next_request, self.next_markets_request if is_markets else 0.0)
+            self.sleep(max(0.0, ready - self.monotonic()))
             requested_at = self.now()
             self.next_request = self.monotonic() + REQUEST_INTERVAL
+            if is_markets:
+                self.next_markets_request = self.monotonic() + MARKETS_REQUEST_INTERVAL
             self.request_count += 1
             self.token_estimate += tokens
             try:
