@@ -5,6 +5,12 @@ the original UTF-8 response text, including error bodies, not normalized JSON.
 ``received_at`` is our first availability time and determines the UTC directory
 and filename. Discovery only navigates series metadata, tickers, and cursors;
 market prices and order books are never parsed into domain records here.
+
+Order books are fetched in batches via ``GET /markets/orderbooks`` after every
+series' open markets are listed. A batch envelope's ``request_params`` holds the
+exact ``tickers`` list, so a parser can tell batch bodies from single-market
+bodies by the request URL. A failed batch falls back to single-market requests
+for that chunk only.
 """
 
 import gzip
@@ -23,12 +29,18 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 LOGGER = logging.getLogger(__name__)
+Params = dict[str, str | int | list[str]]
 BASE_URL = "https://external-api.kalshi.com/trade-api/v2"
 POLL_INTERVAL = 60.0
 SERIES_REFRESH_INTERVAL = 3600.0
 REQUEST_INTERVAL = 0.1  # Conservative 10 requests/s; public quota is undocumented.
 REQUEST_TIMEOUT = 10.0
 MAX_ATTEMPTS = 3
+# Default token cost per request; GET /account/endpoint_costs lists no override for
+# market or order book reads. Kalshi bills batch items individually.
+TOKEN_COST = 10
+# 50 tickers x 10 tokens = 500, inside the 600-token Basic read burst (200/s x 3 s).
+ORDERBOOK_BATCH_SIZE = 50
 # Discovery vocabulary, compared against the set of alphabetic words in a series title.
 HIGH_WORDS = frozenset({"high", "highest", "max", "maximum"})
 TEMPERATURE_WORDS = frozenset({"temp", "temperature", "temperatures"})
@@ -110,11 +122,13 @@ class KalshiCollector:
         self.next_series_refresh = 0.0
         self.next_request = 0.0
         self.request_count = 0
+        self.rate_limited_count = 0
+        self.token_estimate = 0
 
     def save_response(
         self,
         url: str,
-        params: dict[str, str | int],
+        params: Params,
         status: int,
         requested_at: datetime,
         received_at: datetime,
@@ -136,10 +150,15 @@ class KalshiCollector:
         with (directory / filename).open("xb") as output:
             output.write(compressed)
 
-    def request(self, path: str, params: dict[str, str | int] | None = None) -> str:
+    def request(self, path: str, params: Params | None = None, *, tokens: int = TOKEN_COST) -> str:
+        """GET with bounded retries, archiving every response.
+
+        ``tokens`` is this request's estimated rate-limit cost, counted on every
+        attempt. List values are sent as repeated query parameters.
+        """
         params = {} if params is None else params
         url = BASE_URL + path
-        request_url = url + ("?" + urlencode(params) if params else "")
+        request_url = url + ("?" + urlencode(params, doseq=True) if params else "")
         request = Request(
             request_url,
             headers={"User-Agent": "Kalshi-Weather-Bot/0.1 (public weather data collector)"},
@@ -150,6 +169,7 @@ class KalshiCollector:
             requested_at = self.now()
             self.next_request = self.monotonic() + REQUEST_INTERVAL
             self.request_count += 1
+            self.token_estimate += tokens
             try:
                 try:
                     response = urlopen(request, timeout=REQUEST_TIMEOUT)
@@ -165,6 +185,8 @@ class KalshiCollector:
                 retryable = True
             else:
                 self.save_response(request_url, params, status, requested_at, received_at, body)
+                if status == 429:
+                    self.rate_limited_count += 1
                 if 200 <= status < 300:
                     return body
                 failure = f"HTTP {status}"
@@ -197,8 +219,9 @@ class KalshiCollector:
         self.series_tickers = matched
         self.next_series_refresh = self.monotonic() + SERIES_REFRESH_INTERVAL
 
-    def collect_markets(self, series_ticker: str, seen: set[str]) -> int:
-        params: dict[str, str | int] = {
+    def collect_markets(self, series_ticker: str, pending: list[str], seen: set[str]) -> int:
+        """List a series' open markets, appending tickers not yet seen this cycle to pending."""
+        params: Params = {
             "series_ticker": series_ticker,
             "status": "open",
             "limit": 1000,
@@ -211,13 +234,9 @@ class KalshiCollector:
             market_count += len(records)
             for market in records:
                 ticker = required_string(market, "ticker")
-                if ticker in seen:
-                    continue
-                seen.add(ticker)
-                try:
-                    self.request(f"/markets/{quote(ticker, safe='')}/orderbook", {"depth": 0})
-                except (RequestFailed, ValueError):
-                    LOGGER.exception("Order book failed market=%s; continuing", ticker)
+                if ticker not in seen:
+                    seen.add(ticker)
+                    pending.append(ticker)
             cursor = json.loads(body)["cursor"]
             if not isinstance(cursor, str):
                 raise ValueError("Expected a string markets cursor")
@@ -228,9 +247,39 @@ class KalshiCollector:
             cursors.add(cursor)
             params = {**params, "cursor": cursor}
 
+    def collect_orderbooks(self, tickers: list[str]) -> None:
+        """Request each ticker's book once: in a batch, or singly if its chunk fails."""
+        for start in range(0, len(tickers), ORDERBOOK_BATCH_SIZE):
+            chunk = tickers[start : start + ORDERBOOK_BATCH_SIZE]
+            try:
+                body = self.request(
+                    "/markets/orderbooks", {"tickers": chunk}, tokens=TOKEN_COST * len(chunk)
+                )
+                returned = [
+                    required_string(book, "ticker") for book in response_records(body, "orderbooks")
+                ]
+                if sorted(returned) != sorted(chunk):
+                    raise ValueError(
+                        f"Batch returned missing={sorted(set(chunk) - set(returned))} "
+                        f"extra={sorted(set(returned) - set(chunk))} count={len(returned)}"
+                    )
+            except (RequestFailed, ValueError, KeyError):
+                LOGGER.exception(
+                    "Order book batch failed size=%d first=%s; falling back per market",
+                    len(chunk),
+                    chunk[0],
+                )
+                for ticker in chunk:
+                    try:
+                        self.request(f"/markets/{quote(ticker, safe='')}/orderbook", {"depth": 0})
+                    except (RequestFailed, ValueError):
+                        LOGGER.exception("Order book failed market=%s; continuing", ticker)
+
     def run_cycle(self) -> None:
         started = self.monotonic()
         self.request_count = 0
+        self.rate_limited_count = 0
+        self.token_estimate = 0
         refreshed = False
         try:
             if started >= self.next_series_refresh:
@@ -244,13 +293,17 @@ class KalshiCollector:
                     # Retry failed discovery on a later tick, not in a tight loop.
                     self.next_series_refresh = self.monotonic() + POLL_INTERVAL
             seen: set[str] = set()
+            pending: list[str] = []
             market_counts: dict[str, int | None] = {}
             for series_ticker in sorted(self.series_tickers or ()):
                 market_counts[series_ticker] = None
                 try:
-                    market_counts[series_ticker] = self.collect_markets(series_ticker, seen)
+                    market_counts[series_ticker] = self.collect_markets(
+                        series_ticker, pending, seen
+                    )
                 except (RequestFailed, ValueError, KeyError):
                     LOGGER.exception("Markets failed series=%s; continuing", series_ticker)
+            self.collect_orderbooks(pending)
             if refreshed:
                 for ticker, count in sorted(
                     market_counts.items(),
@@ -266,9 +319,11 @@ class KalshiCollector:
                     )
         finally:
             LOGGER.info(
-                "Cycle duration=%.3fs request_count=%d",
+                "Cycle duration=%.3fs request_count=%d rate_limited=%d token_estimate=%d",
                 self.monotonic() - started,
                 self.request_count,
+                self.rate_limited_count,
+                self.token_estimate,
             )
 
     def run_forever(self) -> None:
