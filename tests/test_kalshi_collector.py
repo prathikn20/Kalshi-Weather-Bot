@@ -103,13 +103,140 @@ def mock_http(monkeypatch, clock, handler, *, latency: float = 0.01):
     ],
 )
 def test_daily_high_matching(frequency, title, expected):
-    assert kalshi.is_daily_high_series({"frequency": frequency, "title": title}) is expected
+    record = {"ticker": "KXCITY", "frequency": frequency, "title": title}
+    assert kalshi.is_daily_high_series(record) is expected
 
 
-@pytest.mark.parametrize("record", [{"frequency": "daily"}, {"frequency": 42, "title": "High"}])
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"ticker": "KXCITY", "frequency": "daily"},
+        {"ticker": "KXCITY", "frequency": 42, "title": "High"},
+        {"frequency": "daily", "title": "Daily high temp Tokyo"},
+        {"ticker": "", "frequency": "daily", "title": "Daily high temp Tokyo"},
+    ],
+)
 def test_missing_or_invalid_discovery_fields_raise(record):
     with pytest.raises((KeyError, ValueError)):
         kalshi.is_daily_high_series(record)
+
+
+SERIES_FIXTURE = Path(__file__).parent / "fixtures/kalshi_series/2026-10-07T142603.591250Z.json.gz"
+# Every daily-high series in the 2026-10-07 /series response (see PROVENANCE.md).
+EXPECTED_DAILY_HIGH_SERIES = {
+    # Matched by the original "<high word> temperature in" rule.
+    *("HIGHAUS", "HIGHCHI", "HIGHMIA", "HIGHNY", "HIGHUS", "KXCITIESWEATHER", "KXDENHIGH"),
+    *("KXHIGHAUS", "KXHIGHCHI", "KXHIGHDEN", "KXHIGHHOU", "KXHIGHLAX", "KXHIGHMIA"),
+    *("KXHIGHNY", "KXHIGHOU", "KXHIGHPHIL", "KXHIGHUS", "KXHOUHIGH"),
+    # Missed before: free word order, city first or last.
+    *("HIGHNY0", "KXHIGHNY0", "KXHIGHTATL", "KXHIGHTBOS", "KXHIGHTCYYZ", "KXHIGHTDAL"),
+    *("KXHIGHTDC", "KXHIGHTEBBR", "KXHIGHTEDDB", "KXHIGHTEDDF", "KXHIGHTEGLL", "KXHIGHTEHAM"),
+    *("KXHIGHTEWR", "KXHIGHTHOU", "KXHIGHTKSAN", "KXHIGHTLFPG", "KXHIGHTLSGG", "KXHIGHTLTFM"),
+    *("KXHIGHTLV", "KXHIGHTMIN", "KXHIGHTMMMX", "KXHIGHTNOLA", "KXHIGHTOKC", "KXHIGHTOMDB"),
+    *("KXHIGHTPHX", "KXHIGHTRJTT", "KXHIGHTRKSI", "KXHIGHTSAN", "KXHIGHTSATX", "KXHIGHTSBGR"),
+    *("KXHIGHTSDF", "KXHIGHTSEA", "KXHIGHTSFO", "KXHIGHTTTN", "KXHIGHTVABB", "KXHIGHTVHHH"),
+    *("KXHIGHTWSSS", "KXHIGHTYSSY", "KXHIGHTZBAA", "KXHIGHTZSPD"),
+    # High signal from the ticker: "Death Valley temperature".
+    "KXDVHIGH",
+}
+
+
+def fixture_series_body() -> str:
+    envelope = json.loads(gzip.decompress(SERIES_FIXTURE.read_bytes()))
+    assert envelope["request_url"] == kalshi.BASE_URL + "/series"
+    assert envelope["http_status"] == 200
+    return envelope["body"]
+
+
+def test_archived_series_response_matches_exactly_the_expected_daily_high_set():
+    records = kalshi.response_records(fixture_series_body(), "series")
+    assert len(records) == 14714
+    matched = {record["ticker"] for record in records if kalshi.is_daily_high_series(record)}
+    assert sorted(matched) == sorted(EXPECTED_DAILY_HIGH_SERIES)
+
+
+def test_discovery_on_archived_response_collects_every_expected_series(
+    setup_collector, monkeypatch
+):
+    collector, clock = setup_collector
+    body = fixture_series_body()
+    mock_http(monkeypatch, clock, lambda *_: Response(body.encode()))
+    collector.refresh_series()
+    assert collector.series_tickers == EXPECTED_DAILY_HIGH_SERIES
+
+
+def test_discovery_finds_an_unseen_city_from_metadata_alone(setup_collector, monkeypatch):
+    collector, clock = setup_collector
+    catalogue = {
+        "series": [
+            series("ZZNEWCITYQ", "Reykjavik Daily Max Temp"),
+            series("ZZNEWLOWQ", "Reykjavik Daily Min Temp"),
+        ]
+    }
+    mock_http(monkeypatch, clock, lambda *_: catalogue)
+    collector.refresh_series()
+    assert collector.series_tickers == {"ZZNEWCITYQ"}
+
+
+def test_discovery_module_contains_no_hardcoded_series_tickers():
+    source = Path(kalshi.__file__).read_text()
+    assert not [ticker for ticker in EXPECTED_DAILY_HIGH_SERIES if ticker in source]
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Atlanta Max Temperature",
+        "Boston Maximum Daily Temperature",
+        "Washington DC Daily Max Temp",
+        "Daily high temp Tokyo",
+        "Daly high temp Sao Paulo",
+        "Oklahoma City Maximum High Temperature",
+        "New Orleans Max temp Daily",
+        "HIGHEST Temperature SATX",
+        "Highest temperature in NYC",
+        "Temperature high, Reykjavik",
+        "Max-temp (daily) for St. John's",
+    ],
+)
+def test_daily_high_titles_match_regardless_of_word_order_or_city_position(title):
+    assert kalshi.is_daily_high_series({"ticker": "KXCITY", "frequency": "daily", "title": title})
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Lowest temperature in NYC",
+        "Low Temperature Atlanta",
+        "Daily low temp Tokyo",
+        "Washington DC Daily Min Temp",
+        "Daily Rain DC",
+        "Where will it rain daily",
+        "BTC max daily",
+        "Biggest earthquake",
+        "High and low temperature in NYC",
+        "Highest temperature difference between cities",
+    ],
+)
+def test_daily_lows_rain_and_non_temperature_titles_never_match(title):
+    for ticker in ("KXCITY", "KXHIGHCITY"):
+        record = {"ticker": ticker, "frequency": "daily", "title": title}
+        assert not kalshi.is_daily_high_series(record)
+
+
+@pytest.mark.parametrize("frequency", ["weekly", "hourly", "monthly", "custom", "one_off"])
+def test_high_temperature_series_that_are_not_daily_never_match(frequency):
+    record = {"ticker": "KXHIGHCITY", "frequency": frequency, "title": "Daily high temp Tokyo"}
+    assert not kalshi.is_daily_high_series(record)
+
+
+def test_high_in_ticker_counts_as_high_signal_only_with_a_temperature_title():
+    def match(ticker, title):
+        return kalshi.is_daily_high_series({"ticker": ticker, "frequency": "daily", "title": title})
+
+    assert match("KXDVHIGH", "Death Valley temperature")
+    assert not match("KXDV", "Death Valley temperature")
+    assert not match("KXDVHIGH", "Death Valley rainfall")
 
 
 def test_gzip_round_trip_exact_body_url_params_and_per_request_utc_times(

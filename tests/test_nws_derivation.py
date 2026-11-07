@@ -27,11 +27,15 @@ def test_derivation_reports_metadata_discovery_and_archived_market_coverage_sepa
     report = DERIVE["derive"](FIXTURES)
     (snapshot,) = report["series_snapshots"]
     assert snapshot["metadata_series_count"] == 11
-    assert snapshot["collector_matched_count"] == 8
-    assert snapshot["unmatched_high_temperature_candidates"] == ["KXHIGHTATL", "KXHIGHTEGLL"]
-    assert report["collector_matched_series_count"] == 8
+    assert snapshot["collector_matched_count"] == 10
+    assert snapshot["unmatched_high_temperature_candidates"] == []
+    assert report["collector_matched_series_count"] == 10
     assert report["archived_market_series_count"] == 7
-    assert report["matched_without_archived_markets"] == ["KXHIGHHOU"]
+    assert report["matched_without_archived_markets"] == [
+        "KXHIGHHOU",
+        "KXHIGHTATL",
+        "KXHIGHTEGLL",
+    ]
     assert report["archived_market_series_not_matched"] == []
     assert report["unresolved_series"] == {}
     assert report["skipped_non_us_series"] == {}
@@ -44,6 +48,26 @@ def test_derivation_reports_metadata_discovery_and_archived_market_coverage_sepa
         "CLINYC",
         "CLIPHL",
     }
+
+
+def test_series_the_collector_rejects_but_the_candidate_heuristic_flags_are_reported(tmp_path):
+    records = envelopes()
+    for _, envelope in records:
+        payload = json.loads(envelope["body"])
+        if "series" in payload:
+            # Synthetic: a high word and "temp" (heuristic flags it), but also a low
+            # word, so the collector rejects it.
+            payload["series"].append(
+                {"ticker": "KXHILOSYN", "frequency": "daily", "title": "High and low temp Boston"}
+            )
+            envelope["body"] = json.dumps(payload)
+    write_envelopes(tmp_path, records)
+    report = DERIVE["derive"](tmp_path)
+    (snapshot,) = report["series_snapshots"]
+    assert snapshot["unmatched_high_temperature_candidates"] == ["KXHILOSYN"]
+    assert snapshot["unmatched_high_temperature_candidate_count"] == 1
+    assert snapshot["collector_matched_count"] == 10
+    assert "KXHILOSYN" not in snapshot["collector_matched_series"]
 
 
 def test_settlement_sources_are_copied_verbatim_from_archived_rules_not_cli_links(tmp_path):

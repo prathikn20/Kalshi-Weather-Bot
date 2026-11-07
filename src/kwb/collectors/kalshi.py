@@ -29,9 +29,13 @@ SERIES_REFRESH_INTERVAL = 3600.0
 REQUEST_INTERVAL = 0.1  # Conservative 10 requests/s; public quota is undocumented.
 REQUEST_TIMEOUT = 10.0
 MAX_ATTEMPTS = 3
-HIGH_TEMPERATURE = re.compile(
-    r"\b(?:highest|high|maximum|max)\s+(?:daily\s+)?(?:temperature|temp)\s+in\b"
-)
+# Discovery vocabulary, compared against the set of alphabetic words in a series title.
+HIGH_WORDS = frozenset({"high", "highest", "max", "maximum"})
+TEMPERATURE_WORDS = frozenset({"temp", "temperature", "temperatures"})
+LOW_WORDS = frozenset({"low", "lowest", "min", "minimum"})
+# Titles about a derived quantity (e.g. "highest temperature difference") are not daily highs.
+DERIVED_WORDS = frozenset({"difference", "change", "anomaly"})
+TITLE_WORD = re.compile(r"[a-z]+")
 
 
 class RequestFailed(Exception):
@@ -56,15 +60,27 @@ def required_string(record: dict, field: str) -> str:
 
 
 def is_daily_high_series(series: dict) -> bool:
-    """Match daily series whose title names a high/highest/max temperature in a city.
+    """Match daily series whose metadata names a daily high/max temperature.
 
     Match metadata rather than city tickers so new cities are discovered.
-    Daily frequency excludes hourly/monthly records; the title excludes daily
-    lows, precipitation, and other weather products. Missing fields raise.
+    Kalshi titles vary freely ("Atlanta Max Temperature", "Daily high temp
+    Tokyo"), so the title is treated as a set of words: word order and city
+    position do not matter. A series matches when it is daily, the title has a
+    temperature word, a high signal comes from the title or from "HIGH" in the
+    ticker (the Death Valley series title omits "high"), and the title has no
+    low or derived-quantity word. Daily frequency excludes hourly, weekly, and
+    custom records. Missing fields raise.
     """
     frequency = required_string(series, "frequency").casefold()
-    title = " ".join(required_string(series, "title").casefold().split())
-    return frequency == "daily" and HIGH_TEMPERATURE.search(title) is not None
+    ticker = required_string(series, "ticker").casefold()
+    words = set(TITLE_WORD.findall(required_string(series, "title").casefold()))
+    has_high_signal = bool(words & HIGH_WORDS) or "high" in ticker
+    return (
+        frequency == "daily"
+        and has_high_signal
+        and bool(words & TEMPERATURE_WORDS)
+        and not words & (LOW_WORDS | DERIVED_WORDS)
+    )
 
 
 def response_records(body: str, field: str) -> list[dict]:
