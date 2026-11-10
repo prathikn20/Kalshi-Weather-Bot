@@ -5,8 +5,11 @@ Description=Compact completed hours of raw collector files into zstd archives
 Type=oneshot
 User=prathik
 WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
-ExecStart=/home/prathik/.local/bin/uv run python -m kwb.ops.compact
+ExecStart=/home/prathik/.local/bin/uv run python -m kwb.ops.compact --time-budget-seconds 120 --zstd-level 9
 Environment=PYTHONUNBUFFERED=1
-# zstd level 19 is CPU-heavy; yield to the collector on the shared-core VM.
+# Level 9 / 120 s passed the quota-limited VM capacity check; deployment is separate.
+# Hard CPU cap remains effective even if application budgeting regresses.
 Nice=10
 CPUWeight=20
+CPUQuota=20%
+IOWeight=10
