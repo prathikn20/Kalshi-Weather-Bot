@@ -1,0 +1,210 @@
+[
+  {
+    "mutation": "deadline",
+    "test": "tests/test_compact.py::test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first _\ntests/test_compact.py:312: in test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first\n    assert calls == [(\"2026-10-06T23\", \"nws\"), (\"2026-10-07T13\", \"nws\")]\nE   AssertionError: assert [('2026-10-06...5', 'kalshi')] == [('2026-10-06...7T13', 'nws')]\nE     \nE     Left contains 2 more items, first extra item: ('2026-10-07T14', 'kalshi')\nE     Use -v to get more diff\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.06s\n",
+    "before": "if clock.monotonic() >= deadline:",
+    "after": "if False:"
+  },
+  {
+    "mutation": "oldest-first",
+    "test": "tests/test_compact.py::test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first _\ntests/test_compact.py:312: in test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first\n    assert calls == [(\"2026-10-06T23\", \"nws\"), (\"2026-10-07T13\", \"nws\")]\nE   AssertionError: assert [('2026-10-07...4', 'kalshi')] == [('2026-10-06...7T13', 'nws')]\nE     \nE     At index 0 diff: ('2026-10-07T13', 'nws') != ('2026-10-06T23', 'nws')\nE     Use -v to get more diff\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_no_new_hour_starts_after_the_budget_and_hours_are_globally_oldest_first\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "SELECT DISTINCT day FROM directories ORDER BY day",
+    "after": "SELECT DISTINCT day FROM directories ORDER BY day DESC"
+  },
+  {
+    "mutation": "bounded-rss",
+    "test": "tests/test_compact.py::test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow[large-member]",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow[large-member] _\ntests/test_compact.py:491: in test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow\n    assert max(peaks) < 128 * 1024**2\nE   assert 910229504 < (128 * (1024 ** 2))\nE    +  where 910229504 = max([43220992, 910229504])\n----------------------------- Captured stdout call -----------------------------\nlarge-member: small_peak=43220992 large_peak=910229504 bytes\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow[large-member]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 1.17s\n",
+    "before": "while chunk := stream.read(CHUNK_SIZE):",
+    "after": "while chunk := stream.read():"
+  },
+  {
+    "mutation": "measurement-matrix",
+    "test": "tests/test_compaction_benchmark.py::test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity _\ntests/test_compaction_benchmark.py:85: in test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity\n    assert {(row[\"level\"], row[\"ldm\"]) for row in report[\"trials\"]} == {\nE   assert {(3, False), ...e), (9, True)} == {(3, False), ...), (19, True)}\nE     \nE     Extra items in the right set:\nE     (19, False)\nE     (19, True)\nE     Use -v to get more diff\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.23s\n",
+    "before": "(3, 9, 19)",
+    "after": "(3, 9)"
+  },
+  {
+    "mutation": "capacity-2x",
+    "test": "tests/test_compaction_benchmark.py::test_capacity_requires_twice_incoming_load_and_the_rss_bound_using_the_slowest_vm_trial",
+    "exit_code": 1,
+    "output": ".F\n=================================== FAILURES ===================================\n_ test_capacity_requires_twice_incoming_load_and_the_rss_bound_using_the_slowest_vm_trial[61-40-False] _\ntests/test_compaction_benchmark.py:37: in test_capacity_requires_twice_incoming_load_and_the_rss_bound_using_the_slowest_vm_trial\n    assert all(row[\"passes_2x_and_rss\"] is passes for row in report[\"configs\"])\nE   assert False\nE    +  where False = all(<generator object test_capacity_requires_twice_incoming_load_and_the_rss_bound_using_the_slowest_vm_trial.<locals>.<genexpr> at 0x10b687030>)\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_capacity_requires_twice_incoming_load_and_the_rss_bound_using_the_slowest_vm_trial[61-40-False]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 1 passed in 0.02s\n",
+    "before": "per_day >= 2 * incoming",
+    "after": "per_day >= incoming"
+  },
+  {
+    "mutation": "capacity-discovery",
+    "test": "tests/test_compaction_benchmark.py::test_capacity_accounts_for_backlog_discovery_before_starting_complete_hour_pairs",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_capacity_accounts_for_backlog_discovery_before_starting_complete_hour_pairs _\ntests/test_compaction_benchmark.py:124: in test_capacity_accounts_for_backlog_discovery_before_starting_complete_hour_pairs\n    assert report[\"recommended\"] is None\nE   AssertionError: assert {'level': 9, 'ldm': False, 'worst_pair_wall_seconds': 10, 'worst_pair_cpu_seconds': 2, ...} is None\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_capacity_accounts_for_backlog_discovery_before_starting_complete_hour_pairs\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "budget * 0.9 - discovery_seconds",
+    "after": "budget * 0.9"
+  },
+  {
+    "mutation": "vm-quota-guard",
+    "test": "tests/test_compaction_benchmark.py::test_the_vm_benchmark_refuses_to_claim_capacity_without_the_required_quota",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n__ test_the_vm_benchmark_refuses_to_claim_capacity_without_the_required_quota __\ntests/test_compaction_benchmark.py:104: in test_the_vm_benchmark_refuses_to_claim_capacity_without_the_required_quota\n    with pytest.raises(ValueError, match=\"Linux\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_the_vm_benchmark_refuses_to_claim_capacity_without_the_required_quota\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "def quota_state():\n",
+    "after": "def quota_state():\n    return {}\n"
+  },
+  {
+    "mutation": "cpu-quota",
+    "test": "tests/test_compact.py::test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n__ test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed __\ntests/test_compact.py:440: in test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed\n    assert service[\"CPUQuota\"] == \"20%\"\n           ^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/configparser.py:1232: in __getitem__\n    raise KeyError(key)\nE   KeyError: 'CPUQuota'\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "CPUQuota=20%\n",
+    "after": ""
+  },
+  {
+    "mutation": "io-weight",
+    "test": "tests/test_compact.py::test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n__ test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed __\ntests/test_compact.py:441: in test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed\n    assert service.getint(\"IOWeight\") == 10\nE   AssertionError: assert None == 10\nE    +  where None = functools.partial(<bound method SectionProxy.get of <Section: Service>>, _impl=<bound method RawConfigParser.getint of <configparser.ConfigParser object at 0x1077a28d0>>)('IOWeight')\nE    +    where functools.partial(<bound method SectionProxy.get of <Section: Service>>, _impl=<bound method RawConfigParser.getint of <configparser.ConfigParser object at 0x1077a28d0>>) = <Section: Service>.getint\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "IOWeight=10\n",
+    "after": ""
+  },
+  {
+    "mutation": "verify-before-delete-missing",
+    "test": "tests/test_compact.py::test_no_original_is_deleted_when_the_reopened_archive_is_missing_a_file",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n___ test_no_original_is_deleted_when_the_reopened_archive_is_missing_a_file ____\ntests/test_compact.py:92: in test_no_original_is_deleted_when_the_reopened_archive_is_missing_a_file\n    with pytest.raises(compact.CompactionError, match=\"missing\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE CompactionError\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_no_original_is_deleted_when_the_reopened_archive_is_missing_a_file\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "    key = str(archive or path)\n",
+    "after": "    return\n    key = str(archive or path)\n"
+  },
+  {
+    "mutation": "verify-before-delete-changed",
+    "test": "tests/test_compact.py::test_no_original_is_deleted_when_an_archived_copy_has_a_different_sha256",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n___ test_no_original_is_deleted_when_an_archived_copy_has_a_different_sha256 ___\ntests/test_compact.py:116: in test_no_original_is_deleted_when_an_archived_copy_has_a_different_sha256\n    with pytest.raises(compact.CompactionError, match=\"changed\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE CompactionError\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_no_original_is_deleted_when_an_archived_copy_has_a_different_sha256\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "    key = str(archive or path)\n",
+    "after": "    return\n    key = str(archive or path)\n"
+  },
+  {
+    "mutation": "atomic-rename",
+    "test": "tests/test_compact.py::test_publishing_uses_an_atomic_rename_only_after_verification",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n________ test_publishing_uses_an_atomic_rename_only_after_verification _________\ntests/test_compact.py:341: in test_publishing_uses_an_atomic_rename_only_after_verification\n    assert len(calls) == 1\nE   assert 0 == 1\nE    +  where 0 = len([])\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_publishing_uses_an_atomic_rename_only_after_verification\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "    os.rename(temp, archive)\n",
+    "after": "    archive.write_bytes(temp.read_bytes())\n    temp.unlink()\n"
+  },
+  {
+    "mutation": "killed-originals",
+    "test": "tests/test_compact.py::test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file[False]",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file[False] _\ntests/test_compact.py:381: in test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file\n    assert originals(day_dir) == expected\nE   assert {'2026-10-07T....00\\\\\"]]}}\"}'} == {'2026-10-07T....00\\\\\"]]}}\"}'}\nE     \nE     Omitting 2 identical items, use -vv to show\nE     Right contains 1 more item:\nE     {'2026-10-07T142658.927708Z.json': b'{\"request_url\": \"https://external-api.ka'\nE                                        b'lshi.com/trade-api/v2/markets?series_tic'\nE                                        b'ker=HIGHUS&status=open&limit=1000\", \"req'\nE                                        b'uest_params\": {\"series_ticker\": \"HIGHUS\"'...\nE     \nE     ...Full output truncated (6 lines hidden), use '-vv' to show\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file[False]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.05s\n",
+    "before": "    tar.members.clear()\n\n\ndef build_archive(",
+    "after": "    tar.members.clear()\n    original.unlink()\n\n\ndef build_archive("
+  },
+  {
+    "mutation": "stale-temp-cleanup",
+    "test": "tests/test_compact.py::test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file[False]",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file[False] _\ntests/test_compact.py:386: in test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file\n    compact.compact(raw_root, AFTER_GRACE)\nsrc/kwb/ops/compact.py:333: in compact\n    compact_hour(db, Path(directory), key, level, long_distance)\nsrc/kwb/ops/compact.py:216: in compact_hour\n    build_archive(temp, db, archive, level, long_distance)\nsrc/kwb/ops/compact.py:112: in build_archive\n    with temp.open(\"xb\") as output:\n         ^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/pathlib.py:1013: in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   FileExistsError: [Errno 17] File exists: '/private/var/folders/_p/p3pxv245413bctjpxywq4d400000gn/T/pytest-of-prathik/pytest-97/test_a_process_killed_mid_arch0/raw/kalshi/2026-10-07/.2026-10-07T14.tar.zst.tmp'\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_a_process_killed_mid_archive_keeps_originals_and_the_next_run_cleans_its_temp_file[False]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.07s\n",
+    "before": "                        Path(path.path).unlink()\n",
+    "after": "                        pass\n"
+  },
+  {
+    "mutation": "immutable-supplements",
+    "test": "tests/test_compact.py::test_late_files_are_verified_in_numbered_supplements_without_rewriting_published_archives",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_late_files_are_verified_in_numbered_supplements_without_rewriting_published_archives _\ntests/test_compact.py:219: in test_late_files_are_verified_in_numbered_supplements_without_rewriting_published_archives\n    assert path.stat().st_mtime_ns == mtime\nE   AssertionError: assert 1794322846038882499 == 1794322846036588332\nE    +  where 1794322846038882499 = os.stat_result(st_mode=33188, st_ino=87233801, st_dev=16777234, st_nlink=1, st_uid=501, st_gid=20, st_size=833, st_atime=1794322846, st_mtime=1794322846, st_ctime=1794322846).st_mtime_ns\nE    +    where os.stat_result(st_mode=33188, st_ino=87233801, st_dev=16777234, st_nlink=1, st_uid=501, st_gid=20, st_size=833, st_atime=1794322846, st_mtime=1794322846, st_ctime=1794322846) = stat()\nE    +      where stat = PosixPath('/private/var/folders/_p/p3pxv245413bctjpxywq4d400000gn/T/pytest-of-prathik/pytest-98/test_late_files_are_verified_i0/raw/kalshi/2026-10-07/2026-10-07T14.tar.zst').stat\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_late_files_are_verified_in_numbered_supplements_without_rewriting_published_archives\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "    os.rename(temp, archive)\n",
+    "after": "    os.rename(temp, archive)\n    if \".late-\" in archive.name:\n        primary = archive.with_name(archive.name.split(\".late-\")[0] + \".tar.zst\")\n        primary.write_bytes(primary.read_bytes())\n"
+  },
+  {
+    "mutation": "reopen-final-before-delete",
+    "test": "tests/test_compact.py::test_originals_are_preserved_if_the_final_archive_changes_after_atomic_publication",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_originals_are_preserved_if_the_final_archive_changes_after_atomic_publication _\ntests/test_compact.py:512: in test_originals_are_preserved_if_the_final_archive_changes_after_atomic_publication\n    with pytest.raises(compact.CompactionError, match=\"changed\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE CompactionError\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_originals_are_preserved_if_the_final_archive_changes_after_atomic_publication\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "for (name,) in db.execute(\"SELECT DISTINCT archive FROM expected ORDER BY archive\"):",
+    "after": "for (name,) in []:"
+  },
+  {
+    "mutation": "backlog-file-count",
+    "test": "tests/test_compaction_benchmark.py::test_backlog_drain_time_accounts_for_many_small_files_as_well_as_json_bytes",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_backlog_drain_time_accounts_for_many_small_files_as_well_as_json_bytes __\ntests/test_compaction_benchmark.py:149: in test_backlog_drain_time_accounts_for_many_small_files_as_well_as_json_bytes\n    assert row[\"drain_days\"] == row[\"drain_days_by_file_count\"]\nE   assert 0.04348582362149939 == 58.721837006971455\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_backlog_drain_time_accounts_for_many_small_files_as_well_as_json_bytes\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "drain = max(byte_drain, file_drain or 0) if byte_drain is not None else None",
+    "after": "drain = byte_drain"
+  },
+  {
+    "mutation": "level-nine-default",
+    "test": "tests/test_compact.py::test_the_cli_defaults_to_level_nine_without_ldm_and_a_120_second_budget",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n___ test_the_cli_defaults_to_level_nine_without_ldm_and_a_120_second_budget ____\ntests/test_compact.py:540: in test_the_cli_defaults_to_level_nine_without_ldm_and_a_120_second_budget\n    assert calls == [{\"time_budget_seconds\": 120, \"level\": 9, \"long_distance\": False}]\nE   AssertionError: assert [{'time_budge...ance': False}] == [{'time_budge...ance': False}]\nE     \nE     At index 0 diff: {'time_budget_seconds': 120.0, 'level': 3, 'long_distance': False} != {'time_budget_seconds': 120, 'level': 9, 'long_distance': False}\nE     Use -v to get more diff\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_the_cli_defaults_to_level_nine_without_ldm_and_a_120_second_budget\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "ZSTD_LEVEL = 9 ",
+    "after": "ZSTD_LEVEL = 3 "
+  },
+  {
+    "mutation": "level-nine-unit",
+    "test": "tests/test_compact.py::test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n__ test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed __\ntests/test_compact.py:445: in test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed\n    assert \"--zstd-level 9\" in service[\"ExecStart\"]\nE   AssertionError: assert '--zstd-level 9' in '/home/prathik/.local/bin/uv run python -m kwb.ops.compact --time-budget-seconds 120 --zstd-level 3'\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_the_service_caps_cpu_and_yields_io_even_if_the_time_budget_is_removed\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "--zstd-level 9",
+    "after": "--zstd-level 3"
+  },
+  {
+    "mutation": "selected-capacity",
+    "test": "tests/test_compaction_benchmark.py::test_capacity_keeps_the_selected_level_nine_instead_of_substituting_level_three",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_capacity_keeps_the_selected_level_nine_instead_of_substituting_level_three _\ntests/test_compaction_benchmark.py:198: in test_capacity_keeps_the_selected_level_nine_instead_of_substituting_level_three\n    assert result[\"recommended\"][\"level\"] == 9\nE   assert 3 == 9\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_capacity_keeps_the_selected_level_nine_instead_of_substituting_level_three\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.02s\n",
+    "before": "if r[\"level\"] == selected_level and not r[\"ldm\"] and r[\"passes_2x_and_rss\"]",
+    "after": "if r[\"level\"] == 3 and not r[\"ldm\"] and r[\"passes_2x_and_rss\"]"
+  },
+  {
+    "mutation": "persist-trial",
+    "test": "tests/test_compaction_benchmark.py::test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker __\ntests/test_compaction_benchmark.py:270: in test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker\n    benchmark.main()\nscripts/benchmark_compaction.py:449: in main\n    run_benchmark(args, report, journal)\nscripts/benchmark_compaction.py:362: in run_benchmark\n    result = subprocess.run(\ntests/test_compaction_benchmark.py:236: in fake_worker\n    assert [event[\"trial\"] for event in events if event[\"event\"] == \"trial\"] == report[\nE   AssertionError: assert [] == [{'level': 3,...: 2.0}}, ...}]\nE     \nE     Right contains one more item: {'level': 3, 'ldm': False, 'peak_rss_bytes': 100, 'sources': {'kalshi': {'archive_bytes': 5, 'json_to_archive_ratio': ...o_archive_ratio': 2.0}, 'nws': {'archive_bytes': 5, 'json_to_archive_ratio': 20.0, 'gzip_to_archive_ratio': 2.0}}, ...}\nE     Use -v to get more diff\n----------------------------- Captured stderr call -----------------------------\nBenchmark level=3 ldm=False repeat=1\nBenchmark level=3 ldm=True repeat=1\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.04s\n",
+    "before": "                    record_event(journal, {\"event\": \"trial\", \"repeat\": repeat + 1, \"trial\": row})",
+    "after": "                    pass"
+  },
+  {
+    "mutation": "trial-fsync",
+    "test": "tests/test_compaction_benchmark.py::test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker __\ntests/test_compaction_benchmark.py:270: in test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker\n    benchmark.main()\nscripts/benchmark_compaction.py:449: in main\n    run_benchmark(args, report, journal)\nscripts/benchmark_compaction.py:362: in run_benchmark\n    result = subprocess.run(\ntests/test_compaction_benchmark.py:239: in fake_worker\n    assert synced.count(journal.stat().st_ino) == synced_before_trial + 1\nE   AssertionError: assert 0 == (0 + 1)\nE    +  where 0 = <built-in method count of list object at 0x106a2e1c0>(87233863)\nE    +    where <built-in method count of list object at 0x106a2e1c0> = [87233860, 87233864, 87233860, 87233865, 87233860, 87233868, ...].count\nE    +    and   87233863 = os.stat_result(st_mode=33188, st_ino=87233863, st_dev=16777234, st_nlink=1, st_uid=501, st_gid=20, st_size=788, st_atime=1794322846, st_mtime=1794322846, st_ctime=1794322846).st_ino\nE    +      where os.stat_result(st_mode=33188, st_ino=87233863, st_dev=16777234, st_nlink=1, st_uid=501, st_gid=20, st_size=788, st_atime=1794322846, st_mtime=1794322846, st_ctime=1794322846) = stat()\nE    +        where stat = PosixPath('/private/var/folders/_p/p3pxv245413bctjpxywq4d400000gn/T/pytest-of-prathik/pytest-101/test_each_trial_is_fsynced_and0/report.trials.jsonl').stat\n----------------------------- Captured stderr call -----------------------------\nBenchmark level=3 ldm=False repeat=1\nBenchmark level=3 ldm=True repeat=1\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_each_trial_is_fsynced_and_checkpointed_before_starting_the_next_worker\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.04s\n",
+    "before": "    os.fsync(journal.fileno())",
+    "after": "    pass"
+  },
+  {
+    "mutation": "killed-benchmark-checkpoint",
+    "test": "tests/test_compaction_benchmark.py::test_killing_a_later_benchmark_worker_keeps_every_completed_trial",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n______ test_killing_a_later_benchmark_worker_keeps_every_completed_trial _______\ntests/test_compaction_benchmark.py:329: in test_killing_a_later_benchmark_worker_keeps_every_completed_trial\n    assert len(report[\"trials\"]) == 1\nE   assert 0 == 1\nE    +  where 0 = len([])\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_killing_a_later_benchmark_worker_keeps_every_completed_trial\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.06s\n",
+    "before": "                    save_report(args.output, report)",
+    "after": "                    pass"
+  },
+  {
+    "mutation": "stderr-separation",
+    "test": "tests/test_compaction_benchmark.py::test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n_ test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity _\ntests/test_compaction_benchmark.py:76: in test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity\n    report = json.loads(result.stdout)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/json/__init__.py:346: in loads\n    return _default_decoder.decode(s)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/json/decoder.py:338: in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/json/decoder.py:356: in raw_decode\n    raise JSONDecodeError(\"Expecting value\", s, err.value) from None\nE   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_the_benchmark_exercises_all_six_configs_without_modifying_input_or_claiming_mac_capacity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.31s\n",
+    "before": "file=sys.stderr",
+    "after": "file=sys.stdout"
+  },
+  {
+    "mutation": "backlog-no-decompression",
+    "test": "tests/test_compaction_benchmark.py::test_backlog_estimation_uses_only_gzip_file_sizes_and_labels_the_estimate",
+    "exit_code": 1,
+    "output": "F\n=================================== FAILURES ===================================\n__ test_backlog_estimation_uses_only_gzip_file_sizes_and_labels_the_estimate ___\ntests/test_compaction_benchmark.py:174: in test_backlog_estimation_uses_only_gzip_file_sizes_and_labels_the_estimate\n    result = benchmark.backlog_bytes(\nscripts/benchmark_compaction.py:180: in backlog_bytes\n    with gzip.open(path.path, \"rb\") as stream:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/test_compaction_benchmark.py:165: in forbidden\n    pytest.fail(\"Backlog estimation must not open, decompress or hash payloads\")\nE   Failed: Backlog estimation must not open, decompress or hash payloads\n=========================== short test summary info ============================\nFAILED tests/test_compaction_benchmark.py::test_backlog_estimation_uses_only_gzip_file_sizes_and_labels_the_estimate\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.03s\n",
+    "before": "                    gzip_bytes += path.stat(follow_symlinks=False).st_size",
+    "after": "                    with gzip.open(path.path, \"rb\") as stream:\n                        compact.digest_stream(stream)\n                    gzip_bytes += path.stat(follow_symlinks=False).st_size"
+  },
+  {
+    "mutation": "bounded-member-metadata",
+    "test": "tests/test_compact.py::test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow[many-members]",
+    "before": "tar.members.clear()",
+    "after": "pass",
+    "exit_code": 1,
+    "output": "many-members: small_peak=43368448 large_peak=62750720 bytes\nF\n=================================== FAILURES ===================================\n_ test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow[many-members] _\ntests/test_compact.py:492: in test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow\n    assert peaks[1] - peaks[0] < 16 * 1024**2\nE   assert (62750720 - 43368448) < (16 * (1024 ** 2))\n=========================== short test summary info ============================\nFAILED tests/test_compact.py::test_peak_rss_stays_below_128_mib_when_hour_bytes_or_member_count_grow[many-members]\n1 failed in 5.92s\n"
+  }
+]

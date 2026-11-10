@@ -1,0 +1,144 @@
+{
+  "mode": "local_ratios_and_rss_only",
+  "hour": "2026-11-09T15",
+  "machine": "macOS-27.0-arm64-arm-64bit",
+  "python": "3.12.15",
+  "zstandard": "0.25.0",
+  "zstd": [
+    1,
+    5,
+    7
+  ],
+  "limits": null,
+  "inputs": {
+    "kalshi": {
+      "files": 3901,
+      "gzip_bytes": 8911181,
+      "json_bytes": 96921020,
+      "sha256_manifest": "4e8f104afae3086fc90015f43327f0421408baf7a658bcf14f350d1ba51865fe",
+      "first": "2026-11-09T150041.425950Z.json.gz",
+      "last": "2026-11-09T155958.132543Z.json.gz"
+    },
+    "nws": {
+      "files": 42,
+      "gzip_bytes": 228901,
+      "json_bytes": 6257120,
+      "sha256_manifest": "c475cd810f7b98fb62acd710483eaa95f9c1a27e6e30ee318332f51dd2029dfd",
+      "first": "2026-11-09T151528.284600Z.json.gz",
+      "last": "2026-11-09T154548.333495Z.json.gz"
+    }
+  },
+  "budget_seconds": 120,
+  "ldm_window_log": 27,
+  "threads": 0,
+  "trials": [
+    {
+      "level": 3,
+      "ldm": false,
+      "sources": {
+        "kalshi": {
+          "archive_bytes": 3697528,
+          "json_to_archive_ratio": 26.212382975869282,
+          "gzip_to_archive_ratio": 2.410037462867083
+        },
+        "nws": {
+          "archive_bytes": 196002,
+          "json_to_archive_ratio": 31.92375588004204,
+          "gzip_to_archive_ratio": 1.167850328057877
+        }
+      },
+      "peak_rss_bytes": 37093376,
+      "window_log": 21
+    },
+    {
+      "level": 3,
+      "ldm": true,
+      "sources": {
+        "kalshi": {
+          "archive_bytes": 1923853,
+          "json_to_archive_ratio": 50.378599612340444,
+          "gzip_to_archive_ratio": 4.631944852335391
+        },
+        "nws": {
+          "archive_bytes": 98103,
+          "json_to_archive_ratio": 63.78112799812442,
+          "gzip_to_archive_ratio": 2.3332721731241652
+        }
+      },
+      "peak_rss_bytes": 142950400,
+      "window_log": 27
+    },
+    {
+      "level": 9,
+      "ldm": false,
+      "sources": {
+        "kalshi": {
+          "archive_bytes": 1968613,
+          "json_to_archive_ratio": 49.23315044653266,
+          "gzip_to_archive_ratio": 4.526629154638316
+        },
+        "nws": {
+          "archive_bytes": 79165,
+          "json_to_archive_ratio": 79.03896924145772,
+          "gzip_to_archive_ratio": 2.89144192509316
+        }
+      },
+      "peak_rss_bytes": 53264384,
+      "window_log": 22
+    },
+    {
+      "level": 9,
+      "ldm": true,
+      "sources": {
+        "kalshi": {
+          "archive_bytes": 1591983,
+          "json_to_archive_ratio": 60.88068779628928,
+          "gzip_to_archive_ratio": 5.59753527518824
+        },
+        "nws": {
+          "archive_bytes": 88961,
+          "json_to_archive_ratio": 70.33554029293735,
+          "gzip_to_archive_ratio": 2.5730488641089915
+        }
+      },
+      "peak_rss_bytes": 161136640,
+      "window_log": 27
+    },
+    {
+      "level": 19,
+      "ldm": false,
+      "sources": {
+        "kalshi": {
+          "archive_bytes": 1220966,
+          "json_to_archive_ratio": 79.3806051929374,
+          "gzip_to_archive_ratio": 7.29846777060131
+        },
+        "nws": {
+          "archive_bytes": 65899,
+          "json_to_archive_ratio": 94.95015098863412,
+          "gzip_to_archive_ratio": 3.473512496396
+        }
+      },
+      "peak_rss_bytes": 135577600,
+      "window_log": 23
+    },
+    {
+      "level": 19,
+      "ldm": true,
+      "sources": {
+        "kalshi": {
+          "archive_bytes": 1152935,
+          "json_to_archive_ratio": 84.06460034607328,
+          "gzip_to_archive_ratio": 7.729126967261815
+        },
+        "nws": {
+          "archive_bytes": 65783,
+          "json_to_archive_ratio": 95.1175835702233,
+          "gzip_to_archive_ratio": 3.47963759633948
+        }
+      },
+      "peak_rss_bytes": 384942080,
+      "window_log": 27
+    }
+  ]
+}
