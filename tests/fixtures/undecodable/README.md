@@ -1,0 +1,3 @@
+Synthetic reverse-proxy error page with an HTML response shape. The body contains a Latin-1 accented byte (e9) and invalid UTF-8 bytes (ff fe); it is deliberately not a captured provider response. Tests replay these exact bytes through both collectors for successful, redirect, and error statuses, including batch order-book fallback.
+
+Envelope contract: absent `body_encoding` means `body` is unchanged UTF-8 text. `body_encoding: "base64"` means recover the exact response bytes with strict standard base64 decoding. Compaction preserves the complete envelope bytes without interpreting this field.

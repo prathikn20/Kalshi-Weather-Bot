@@ -2,6 +2,7 @@
 
 Archive every HTTP response before inspecting discovery fields. ``body`` is
 the original UTF-8 response text, including error bodies, not normalized JSON.
+Undecodable bytes use base64 with ``body_encoding="base64"``; see .raw.
 ``received_at`` is our first availability time and determines the UTC directory
 and filename. Discovery only navigates series metadata, tickers, and cursors;
 market prices and order books are never parsed into domain records here.
@@ -27,6 +28,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
+
+from kwb.collectors.raw import body_fields
 
 LOGGER = logging.getLogger(__name__)
 Params = dict[str, str | int | list[str]]
@@ -136,7 +139,7 @@ class KalshiCollector:
         status: int,
         requested_at: datetime,
         received_at: datetime,
-        body: str,
+        body: bytes | str,
     ) -> None:
         envelope = {
             "request_url": url,
@@ -144,7 +147,7 @@ class KalshiCollector:
             "http_status": status,
             "requested_at": utc_timestamp(requested_at),
             "received_at": utc_timestamp(received_at),
-            "body": body,
+            **body_fields(body),
         }
         directory = self.raw_root / received_at.date().isoformat()
         directory.mkdir(parents=True, exist_ok=True)
@@ -186,17 +189,19 @@ class KalshiCollector:
                 with response:
                     body_bytes = response.read()
                     received_at = self.now()
-                    body = body_bytes.decode("utf-8")
                     status = response.status
             except (OSError, HTTPException) as error:
                 failure = f"{type(error).__name__}: {error}"
                 retryable = True
             else:
-                self.save_response(request_url, params, status, requested_at, received_at, body)
+                # Archive completed bytes before decoding; storage failures are fatal.
+                self.save_response(
+                    request_url, params, status, requested_at, received_at, body_bytes
+                )
                 if status == 429:
                     self.rate_limited_count += 1
                 if 200 <= status < 300:
-                    return body
+                    return body_bytes.decode("utf-8")
                 failure = f"HTTP {status}"
                 retryable = status in (408, 429) or 500 <= status < 600
 

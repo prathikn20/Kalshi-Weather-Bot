@@ -1,6 +1,7 @@
 """Raw NWS collector: ``uv run python -m kwb.collectors.nws``.
 
-Archive response text before navigating /points. Forecast bodies are opaque.
+Archive response bytes before navigating /points. Forecast bodies are opaque.
+Undecodable bytes use base64 with ``body_encoding="base64"``; see .raw.
 received_at is the UTC instant the complete body arrives, never its issue time.
 See docs/nws-collector.md for provider documentation and station provenance.
 """
@@ -25,6 +26,7 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from kwb.collectors.kalshi import required_string, utc_now, utc_timestamp
+from kwb.collectors.raw import body_fields
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://api.weather.gov"
@@ -130,7 +132,7 @@ class NWSCollector:
         status: int,
         requested_at: datetime,
         received_at: datetime,
-        body: str,
+        body: bytes | str,
     ) -> None:
         envelope = {
             "request_url": url,
@@ -138,7 +140,7 @@ class NWSCollector:
             "http_status": status,
             "requested_at": utc_timestamp(requested_at),
             "received_at": utc_timestamp(received_at),
-            "body": body,
+            **body_fields(body),
         }
         directory = self.raw_root / received_at.date().isoformat()
         directory.mkdir(parents=True, exist_ok=True)
@@ -168,7 +170,6 @@ class NWSCollector:
                 with response:
                     body_bytes = response.read()
                     received_at = self.now()
-                    body = body_bytes.decode("utf-8")
                     status = response.status
                     retry_after = response.headers.get("Retry-After")
             except (OSError, HTTPException) as error:
@@ -176,9 +177,9 @@ class NWSCollector:
                 retryable = True
             else:
                 # Keep archive failures outside the network exception handler: data loss is fatal.
-                self.save_response(url, status, requested_at, received_at, body)
+                self.save_response(url, status, requested_at, received_at, body_bytes)
                 if 200 <= status < 300:
-                    return body
+                    return body_bytes.decode("utf-8")
                 failure = f"HTTP {status}"
                 retryable = status in (408, 429) or 500 <= status < 600
 
