@@ -1,3 +1,4 @@
+import base64
 import gzip
 import io
 import json
@@ -589,6 +590,45 @@ def catalogue_handler(open_markets: dict[str, list[str]], batch_failure=None):
         return {"orderbook_fp": {"yes_dollars": [], "no_dollars": []}}
 
     return handler
+
+
+def test_an_undecodable_batch_is_archived_and_falls_back_for_every_book_in_its_chunk(
+    setup_collector, monkeypatch, caplog
+):
+    collector, clock = setup_collector
+    body = (Path(__file__).parent / "fixtures/undecodable/upstream-error.bin").read_bytes()
+    tickers = market_tickers("A", 110)
+    bad_chunk = tickers[50:100]
+    calls = mock_http(
+        monkeypatch,
+        clock,
+        catalogue_handler(
+            {"CITYA": tickers},
+            lambda chunk: Response(body) if chunk == bad_chunk else None,
+        ),
+    )
+    collector.run_cycle()
+
+    saved = envelopes(collector.raw_root)
+    batches = [record for record in saved if "/markets/orderbooks?" in record["request_url"]]
+    assert [record["request_params"]["tickers"] for record in batches] == [
+        tickers[:50],
+        bad_chunk,
+        tickers[100:],
+    ]
+    failed = batches[1]
+    assert failed["http_status"] == 200
+    assert failed["body_encoding"] == "base64"
+    assert base64.b64decode(failed["body"], validate=True) == body
+    assert batched(calls) == [tickers[:50], bad_chunk, tickers[100:]]
+    assert singles(calls) == bad_chunk
+    archived_singles = [
+        record for record in saved if record["request_url"].endswith("/orderbook?depth=0")
+    ]
+    assert [record["request_url"].split("/")[-2] for record in archived_singles] == bad_chunk
+    assert all(record["http_status"] == 200 for record in archived_singles)
+    assert all("orderbook_fp" in json.loads(record["body"]) for record in archived_singles)
+    assert "falling back per market" in caplog.text
 
 
 @pytest.mark.parametrize(
