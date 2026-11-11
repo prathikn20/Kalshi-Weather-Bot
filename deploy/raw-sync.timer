@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly raw archive upload
+
+[Timer]
+# Spread routine work after compaction (:10); their shared lock prevents overlap,
+# including when both persistent timers catch up after downtime.
+OnCalendar=*-*-* *:40:00
+Persistent=true
+Unit=raw-sync.service
+
+[Install]
+WantedBy=timers.target

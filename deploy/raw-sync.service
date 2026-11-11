@@ -1,0 +1,19 @@
+[Unit]
+Description=Upload published hourly raw archives to Cloud Storage (write-once)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Sync holds compaction's lock for its whole run, so a hard cap guarantees
+# a hung upload can't block compaction for more than one hour.
+TimeoutStartSec=15min
+User=prathik
+WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
+ExecStart=/home/prathik/.local/bin/uv run python -m kwb.ops.sync --bucket kalshi-weather-bot-raw-prathikn20 --time-budget-seconds 300
+Environment=PYTHONUNBUFFERED=1
+# Collection has priority over maintenance (see docs/decisions.md 2026-11-07).
+Nice=10
+CPUWeight=20
+CPUQuota=20%
+IOWeight=10

@@ -9,6 +9,7 @@ secrets/
 # Data
 raw/
 data/
+state/
 
 # Python
 __pycache__/
