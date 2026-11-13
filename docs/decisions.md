@@ -35,6 +35,9 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 
 - 2026-11-13: Live forecasts and historical backfills use AWS NDFD `noaa-ndfd-pds/wmo/maxt/` so training and live inputs share one source; the `api.weather.gov` collector continues as a cross-check.
 - 2026-11-13: Backfilled forecasts use `available_at = WMO filename time + L`, where L is measured from arrival logs as `first_seen_at - WMO filename time`, replacing the spike's eight-observation estimate. The measurement and addition must use the same anchor: filename time precedes GRIB reference time by 5-28 minutes, median 14 minutes. Observations are censored and excluded from L when the key's filename time precedes the previous successful poll (collector startup or outage).
+- 2026-11-13: GEFS backfill and Baseline 2 move to January 2027, with Phase 3. The mid-December milestone (Baseline 1 vs market-implied probabilities on collected days) needs only NDFD; a second archive backfill would delay it, and Baseline 1's error-based spread is a standard first calibrated baseline. GEFS returns as the ensemble-spread comparison once the milestone is met.
+- 2026-11-13: docs/plan.md is maintained from the planning chat: it edits the file directly in the local checkout, or writes the edit into a task prompt for the agent to apply verbatim in that task's PR. Agents report scope changes the prompt did not cover instead of rewriting the plan. Supersedes the plan rule added to CLAUDE.md in PR #14. Plan changes come from decisions made in planning, which a task agent does not see.
+- 2026-11-13: A repository ruleset on main requires the CI `test` check to pass and blocks force pushes and deletion, with no bypass list, closing the limit noted in the 2026-11-12 CI line.
 
 ## Open (answer during the spike)
 
@@ -42,7 +45,7 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 - Bracket structure per city:
 - Climate day boundary in the Daily Climate Report:
 - Kalshi API history available and rate limits:
-- GEFS on AWS: coverage, format, publication delay:
+- GEFS on AWS: coverage, format, publication delay: deferred to January 2027 (2026-11-13).
 - Archive of past NWS point forecasts: answered 2026-11-13 (AWS NDFD; source-switch line).
 - City:
 - Weekly hours:

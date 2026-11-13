@@ -23,7 +23,7 @@ Each question ends with a one-line answer in `docs/decisions.md`.
 1. Bracket structure per city: mutually exclusive brackets plus tails, or thresholds.
 2. Climate day boundary in the NWS Daily Climate Report: local standard time year-round, or not.
 3. Kalshi API: what history it returns (trades, candles, settled markets, order books) and rate limits.
-4. GEFS on AWS Open Data: contents, how far back, and the measured delay from run initialization to files appearing.
+4. Deferred to January 2027 with Baseline 2 (2026-11-13). GEFS on AWS Open Data: contents, how far back, and the measured delay from run initialization to files appearing.
 5. Answered. Whether an archive of past NWS forecasts exists: AWS NDFD (`noaa-ndfd-pds`), evaluated in `notebooks/02_nws_forecast_archive.ipynb` (2026-11-13, source switch).
 6. City choice: highest weather-market volume, probably NYC (verify).
 7. Answered (2026-11-12, refining 2026-11-07). Settlement source: what KX* series settle on, how The Weather Company's maximum relates to the NWS CLI value, and when the series switched.
@@ -40,7 +40,7 @@ Done when a DuckDB query returns, for any past moment in the collection window, 
 
 ## Phase 2: baselines and scoring (by mid-December 2026)
 
-Backfill GEFS and station history. Baseline 1: bias-corrected NWS with a spread, using NWS forecasts from the AWS NDFD archive for both backfill and live. Baseline 2: GEFS member counting. Build `eval/scoring.py` (CRPS, per-bracket Brier, reliability diagrams) before any neural work.
+Backfill NDFD MaxT and station history. Baseline 1: bias-corrected NWS with a spread, using NWS forecasts from the AWS NDFD archive for both backfill and live. Baseline 2 (GEFS member counting) is deferred to January 2027 with Phase 3 (2026-11-13); the mid-December milestone needs only Baseline 1. Build `eval/scoring.py` (CRPS, per-bracket Brier, reliability diagrams) before any neural work.
 
 Done when there is a number for whether Baseline 1 beats market-implied probabilities on collected days. Milestone: mid-December 2026.
 
