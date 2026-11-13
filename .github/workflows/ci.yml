@@ -5,6 +5,11 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Every uv command in this job must use uv.lock as committed. A stale lock fails
+    # `uv sync`, and `uv run` cannot re-lock. The VM installs from this same lock, so
+    # it gets the versions this job tested. Plain `uv run` would re-lock silently.
+    env:
+      UV_LOCKED: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
