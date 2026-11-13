@@ -38,11 +38,11 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 
 ## Open (answer during the spike)
 
-- Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched:
+- Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).
 - Bracket structure per city:
 - Climate day boundary in the Daily Climate Report:
 - Kalshi API history available and rate limits:
 - GEFS on AWS: coverage, format, publication delay:
-- Archive of past NWS point forecasts:
+- Archive of past NWS point forecasts: answered 2026-11-13 (AWS NDFD; source-switch line).
 - City:
 - Weekly hours:

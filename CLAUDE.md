@@ -48,6 +48,7 @@ Changes to `src/kwb/schemas.py`, `src/kwb/forecast/base.py`, or any signature be
 - **External APIs.** Verify endpoints, auth, and rate limits against the provider's current docs before writing client code; do not rely on memory. NWS (`api.weather.gov`) requires a descriptive `User-Agent` header.
 - **Scope.** Do the task asked. If you notice something out of scope, note it at the end instead of fixing it.
 - **Decisions.** When a task settles a design question, add one line to `docs/decisions.md` with the date and the reason.
+- **Plan.** When a task changes scope, phase order or a data source, update `docs/plan.md` in the same task.
 
 ## Testing
 
