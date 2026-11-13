@@ -1,0 +1,15 @@
+{
+  "note": "Two exact unsigned S3 ListObjectsV2 response bodies, trimmed at the server using max-keys=2. No XML edits. Both pages are truncated; pagination termination is tested separately.",
+  "pages": [
+    {
+      "file": "2026-11-13/2026-11-13T051828.714285Z.json.gz",
+      "body_sha256": "e1257735587cfbf8134467d28e2e2c78c7a5f39bef892f532c7754106746b3d9",
+      "url": "https://noaa-ndfd-pds.s3.amazonaws.com/?list-type=2&prefix=wmo%2Fmaxt%2F2026%2F11%2F12%2F&max-keys=2"
+    },
+    {
+      "file": "2026-11-13/2026-11-13T051828.834849Z.json.gz",
+      "body_sha256": "5b776a7fc7c3c064c3cf133afb35a8bcd2cadc00de72d4fe6f04e65a946ecd49",
+      "url": "https://noaa-ndfd-pds.s3.amazonaws.com/?list-type=2&prefix=wmo%2Fmaxt%2F2026%2F11%2F12%2F&max-keys=2&continuation-token=1bEs75%2FH%2FHu9MLbYT6KPouptbTVTlhow%2FzCKuFPwlm3L%2BMrip8YXvbpa0QmIxhr6oEDNGybUX38lqSQ7VOIB3ohD2JezTNwM%2F"
+    }
+  ]
+}

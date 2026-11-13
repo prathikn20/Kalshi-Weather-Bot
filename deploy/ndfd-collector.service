@@ -1,0 +1,14 @@
+[Unit]
+Description=NDFD MaxT arrival listing collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Finish or terminate before the next five-minute tick; the timer retries failed polls.
+TimeoutStartSec=4min
+User=prathik
+WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
+ExecStart=/home/prathik/.local/bin/uv run python -m kwb.collectors.ndfd
+Environment=PYTHONUNBUFFERED=1
+# Same default CPU, memory, and I/O policy as the Kalshi and NWS collectors.
