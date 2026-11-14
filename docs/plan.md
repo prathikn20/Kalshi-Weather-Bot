@@ -20,12 +20,12 @@ Done when both dumpers have run unattended on the VM for 24 hours and the backup
 
 Each question ends with a one-line answer in `docs/decisions.md`.
 
-1. Bracket structure per city: mutually exclusive brackets plus tails, or thresholds.
-2. Climate day boundary in the NWS Daily Climate Report: local standard time year-round, or not.
+1. Answered (2026-11-13). Bracket structure: six-market integer-°F partitions (four inclusive two-integer brackets plus two strict tails) in every KX event, both CLI and TWC periods. `notebooks/03_market_structure.ipynb`.
+2. Answered (2026-11-13). Climate day: NWS CLI uses local standard time year-round; TWC's window is not established.
 3. Kalshi API: what history it returns (trades, candles, settled markets, order books) and rate limits.
 4. Deferred to January 2027 with Baseline 2 (2026-11-13). GEFS on AWS Open Data: contents, how far back, and the measured delay from run initialization to files appearing.
 5. Answered. Whether an archive of past NWS forecasts exists: AWS NDFD (`noaa-ndfd-pds`), evaluated in `notebooks/02_nws_forecast_archive.ipynb` (2026-11-13, source switch).
-6. City choice: highest weather-market volume, probably NYC (verify).
+6. Answered (2026-11-13). City choice: Los Angeles (KXHIGHLAX), NYC runner-up, by TWC-period volume, conditional on the KLAX NDFD cell check in Phase 2.
 7. Answered (2026-11-12, refining 2026-11-07). Settlement source: what KX* series settle on, how The Weather Company's maximum relates to the NWS CLI value, and when the series switched.
 
 ### Parsers and remaining collectors
@@ -40,7 +40,7 @@ Done when a DuckDB query returns, for any past moment in the collection window, 
 
 ## Phase 2: baselines and scoring (by mid-December 2026)
 
-Backfill NDFD MaxT and station history. Baseline 1: bias-corrected NWS with a spread, using NWS forecasts from the AWS NDFD archive for both backfill and live. Baseline 2 (GEFS member counting) is deferred to January 2027 with Phase 3 (2026-11-13); the mid-December milestone needs only Baseline 1. Build `eval/scoring.py` (CRPS, per-bracket Brier, reliability diagrams) before any neural work.
+Backfill NDFD MaxT and station history. Point extraction selects the CONUS grid and the KLAX cell; confirm the cell's centre is on land and its MaxT bias is not anomalous versus KNYC before committing to LA (2026-11-13). Baseline 1: bias-corrected NWS with a spread, using NWS forecasts from the AWS NDFD archive for both backfill and live. Baseline 2 (GEFS member counting) is deferred to January 2027 with Phase 3 (2026-11-13); the mid-December milestone needs only Baseline 1. Build `eval/scoring.py` (CRPS, per-bracket Brier, reliability diagrams) before any neural work.
 
 Done when there is a number for whether Baseline 1 beats market-implied probabilities on collected days. Milestone: mid-December 2026.
 

@@ -47,8 +47,7 @@ Changes to `src/kwb/schemas.py`, `src/kwb/forecast/base.py`, or any signature be
 - **No real orders.** Nothing places a live Kalshi order unless the environment variable `KWB_LIVE=1` is set and the kill switch file is absent. Until Phase 5, the Kalshi client is read-only.
 - **External APIs.** Verify endpoints, auth, and rate limits against the provider's current docs before writing client code; do not rely on memory. NWS (`api.weather.gov`) requires a descriptive `User-Agent` header.
 - **Scope.** Do the task asked. If you notice something out of scope, note it at the end instead of fixing it.
-- **Decisions.** When a task settles a design question, add one line to `docs/decisions.md` with the date and the reason.
-- **Plan.** `docs/plan.md` is maintained from the planning chat. Apply plan edits given in the task prompt verbatim. If a task changes scope, phase order or a data source in a way the prompt did not cover, say so in the summary instead of rewriting `docs/plan.md`.
+- **Docs.** `docs/plan.md` and `docs/decisions.md` change only through text given in the task prompt, applied verbatim in that task's PR. If a task settles a question or changes scope, phase order or a data source in a way the prompt did not cover, put a draft decision line or plan note in the summary instead of editing either file.
 
 ## Testing
 
@@ -63,6 +62,5 @@ Changes to `src/kwb/schemas.py`, `src/kwb/forecast/base.py`, or any signature be
   English line on what it checks, and proof it bites: temporarily break
   the code so the property is violated, run the test, show the failure,
   then revert.
-
 
 - In every task summary, explain each non-obvious design choice in one or two sentences, written for someone learning this codebase.
