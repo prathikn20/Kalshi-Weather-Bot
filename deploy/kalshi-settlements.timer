@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Kalshi settlements with weekly configured historical rescan
+
+[Timer]
+OnCalendar=*-*-* 18:23:00 UTC
+Persistent=true
+AccuracySec=1s
+Unit=kalshi-settlements.service
+
+[Install]
+WantedBy=timers.target
