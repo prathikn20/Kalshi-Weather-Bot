@@ -1,0 +1,36 @@
+[
+  {
+    "fixture": "2026-11-10T220044.749404Z.json.gz",
+    "source_path": "/home/prathik/Kalshi-Weather-Bot/raw/kalshi/2026-11-10/2026-11-10T22.tar.zst!2026-11-10T220044.749404Z.json",
+    "source_envelope_sha256": "45672eee69a3e686402b5185b284ebcf3758a54b4b0bf5f3b434f36923946443",
+    "fixture_envelope_sha256": "f7d7a242996628c68780eb465bcccd374bb508bd0f389cd217e83a6922613147",
+    "fixture_file_sha256": "d45cc03ec1315301ff2893d24134863444412edc9ed23a4cdad176c4f68cda1c",
+    "projection": [
+      "markets projected onto complete event KXHIGHLAX-26NOV11; all fields retained",
+      "envelope JSON reserialized; received_at unchanged"
+    ],
+    "source_container_sha256": "664df60114ea27de1a46bae0da0046c33d78134a70d6571654dbd0393518201e"
+  },
+  {
+    "fixture": "2026-10-07T143102.368711Z.json.gz",
+    "source_path": "tests/fixtures/kalshi_raw/2026-10-07/2026-10-07T143102.368711Z.json.gz",
+    "source_envelope_sha256": "b7bb10779aaf7e9db1a1cf70b7381ffc53ee1653ff03f36f2da89b31fcaeffa6",
+    "fixture_envelope_sha256": "b7bb10779aaf7e9db1a1cf70b7381ffc53ee1653ff03f36f2da89b31fcaeffa6",
+    "fixture_file_sha256": "c11c9c5295d9de682a951eb5f38004f12856a7c68f5562ade0f33bda4e7e90db",
+    "projection": [
+      "intact existing committed single-book response; no trimming or reserialization"
+    ],
+    "origin_raw_path": "raw/kalshi/2026-10-07/2026-10-07T143102.368711Z.json.gz"
+  },
+  {
+    "fixture": "2026-11-10T220056.444920Z.json.gz",
+    "source_path": "/home/prathik/Kalshi-Weather-Bot/raw/kalshi/2026-11-10/2026-11-10T22.tar.zst!2026-11-10T220056.444920Z.json",
+    "source_envelope_sha256": "0c6a0ed2ec1320ba090baad15e17be18122559223e8d7be322c19e98506a4882",
+    "fixture_envelope_sha256": "c45d39ea295036a54872b85fea165332461d3a02753e14ac4295d5ca6f2de4d4",
+    "fixture_file_sha256": "eb964bb3dca885744dcbf9e18cd72cbd21692ebc639df4b0cef244a420001d0e",
+    "projection": [
+      "intact mixed 50-ticker response; envelope JSON reserialized; received_at unchanged"
+    ],
+    "source_container_sha256": "664df60114ea27de1a46bae0da0046c33d78134a70d6571654dbd0393518201e"
+  }
+]

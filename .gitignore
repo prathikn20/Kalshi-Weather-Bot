@@ -22,5 +22,7 @@ build/
 *.egg-info/
 
 # Misc
+docs/understanding.md
+.compaction-benchmark-work/
 .DS_Store
 .ipynb_checkpoints/

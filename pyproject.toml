@@ -5,8 +5,11 @@ description = "Calibrated probabilistic forecaster and decision layer for Kalshi
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "duckdb==2.0.0",
     "google-cloud-storage>=3",
     "google-crc32c>=1.9.0",
+    "pyarrow==26.0.1",
+    "pydantic==2.14.3",
     "zstandard>=0.25.0",
 ]
 
@@ -18,7 +21,11 @@ build-backend = "hatchling.build"
 packages = ["src/kwb"]
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = [
+    "hypothesis==6.170.15",
+    "pytest",
+    "ruff",
+]
 notebooks = [
     "grib2io>=2.8.2",
     "ipykernel>=7.4.0",
