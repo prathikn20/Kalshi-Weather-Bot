@@ -39,13 +39,18 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 - 2026-11-13: docs/plan.md is maintained from the planning chat: it edits the file directly in the local checkout, or writes the edit into a task prompt for the agent to apply verbatim in that task's PR. Agents report scope changes the prompt did not cover instead of rewriting the plan. Supersedes the plan rule added to CLAUDE.md in PR #14. Plan changes come from decisions made in planning, which a task agent does not see.
 - 2026-11-13: A repository ruleset on main requires the CI `test` check to pass and blocks force pushes and deletion, with no bypass list, closing the limit noted in the 2026-11-12 CI line.
 
+- 2026-11-13: All seven configured KX daily-high series use six-market integer-°F partitions in both NWS CLI and TWC periods: four inclusive two-integer brackets and two strict tails. 5,137/5,137 API-served KX events pass, including bounds recovered from 175 markets' literal primary rules. Parsers may assume this structure and must raise on any event that breaks it. Evidence: notebooks/03_market_structure.ipynb.
+- 2026-11-13: NWS CLI daily maxima use midnight-to-midnight local standard time year-round (KNYC 05:00 to 05:00 UTC), per NWSI 10-1004 §4.1.2 and six real KNYC products around both 2026 DST transitions. KX primary rules name a date without an intraday boundary, so TWC's aggregation window is not established; labels come from Kalshi's settled results, so the boundary matters for observation features and CLI-labeled days. Evidence: notebooks/03_market_structure.ipynb.
+- 2026-11-13: First city is Los Angeles (KXHIGHLAX, station KLAX), NYC runner-up: TWC-period volume is 41,618,559.95 versus 16,528,729.96 contracts over 93 events each. Selection is by volume, with shared-cohort quality-issue rates breaking ties within 20%; settled-market open interest is not used. Condition: KLAX is about 3 km from the coast, so NDFD point extraction must show the extracted cell's centre is on land and its MaxT bias over collected days is not anomalous versus KNYC; otherwise switch to NYC with a superseding line. Evidence: notebooks/03_market_structure.ipynb.
+- 2026-11-13: Supersedes the 2026-11-13 plan-ownership line. Decisions and plan changes are made in the planning chat; agents apply the docs/plan.md and docs/decisions.md text given in the task prompt verbatim, in that task's PR. Anything a task settles that its prompt did not cover goes in the summary as a draft line, not into either file. The planning chat no longer edits the checkout. Reason: its edits through the device bridge left uncommitted changes in the main checkout and needed a separate commit prompt.
+
 ## Open (answer during the spike)
 
 - Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).
-- Bracket structure per city:
-- Climate day boundary in the Daily Climate Report:
+- Bracket structure per city: answered 2026-11-13.
+- Climate day boundary in the Daily Climate Report: answered 2026-11-13 (CLI only; TWC window open).
 - Kalshi API history available and rate limits:
 - GEFS on AWS: coverage, format, publication delay: deferred to January 2027 (2026-11-13).
 - Archive of past NWS point forecasts: answered 2026-11-13 (AWS NDFD; source-switch line).
-- City:
+- City: answered 2026-11-13 (Los Angeles, conditional on the KLAX cell check).
 - Weekly hours:

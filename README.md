@@ -1,33 +1,31 @@
-# Kalshi-Weather-Bot
+# Kalshi Weather Bot
 
-Start the public, read-only Kalshi raw collector from the repository root:
+Calibrated probabilistic forecaster for Kalshi daily-high temperature markets, plus a decision layer that trades when the model's fair value beats the market price after fees. Primary metric is calibration versus market-implied probabilities (CRPS, Brier, reliability). P&L is the last test.
+
+## Running on the VM
+
+- `kwb.collectors.kalshi`: `deploy/kalshi-collector.service`; open markets and order books every 60 seconds, with hourly series discovery.
+- `kwb.collectors.nws`: `deploy/nws-collector.service`; point forecasts for configured settlement sites every 30 minutes.
+- `kwb.collectors.ndfd`: `deploy/ndfd-collector.service` and `deploy/ndfd-collector.timer`; MaxT arrival listings every five minutes UTC, without GRIB downloads.
+- `kwb.ops.compact`: `deploy/raw-compaction.service` and `deploy/raw-compaction.timer`; compact completed raw hours at minute :10 each hour, with a 120-second budget.
+- `kwb.ops.sync`: `deploy/raw-sync.service` and `deploy/raw-sync.timer`; upload published archives to GCS with write-once creation at minute :40 each hour, with a 300-second budget.
+
+Collectors preserve HTTP responses under `raw/<source>/` before parsing. Kalshi access is read-only.
+
+## Install and check
+
+Use Python 3.12 and uv from the repository root:
 
 ```sh
-uv run python -m kwb.collectors.kalshi
+uv sync
+uv run pytest -q
+uv run ruff check .
+uv run ruff format --check .
 ```
 
-It discovers daily-high temperature series across cities hourly, then fetches
-their open markets (all pages) and full order books every 60 seconds. Discovery
-matches daily-frequency series with high/highest/maximum/max temperature titles
-followed by "in" a city. Matched tickers are logged at each refresh; changes warn.
-Failed discovery retains the previous series and retries on a later tick.
-HTTP and network failures have bounded retries with exponential backoff and jitter;
-one failed market does not stop collection of other markets. Requests are paced at
-at most 10 per second. Cycles run sequentially and skip elapsed ticks on overruns.
-Each cycle logs its duration and HTTP attempt count. Stop with Ctrl-C.
+## Project documentation
 
-Every HTTP response, including discovery pages and HTTP errors, is saved under
-`raw/kalshi/YYYY-MM-DD/<received_at>.json.gz`. Both the date directory and filename
-use UTC receipt time. Each gzip file contains a JSON envelope with `request_url`
-(including its query string), `request_params`, `http_status`, `requested_at`,
-`received_at`, and `body`. The body is the original UTF-8 text, including whitespace
-and numeric formatting; a later parser can decode it as JSON. `received_at` is the
-first time our system had the complete response. Transport errors have no response
-to save and are logged. Storage failures raise rather than discard raw history.
-
-No API credentials are needed. API documentation:
-[market data](https://docs.kalshi.com/getting_started/quick_start_market_data),
-[series discovery](https://docs.kalshi.com/api-reference/market/get-series-list),
-[markets](https://docs.kalshi.com/api-reference/market/get-markets),
-[order books](https://docs.kalshi.com/api-reference/market/get-market-orderbook), and
-[rate limits](https://docs.kalshi.com/getting_started/rate_limits).
+- [Plan and phase scope](docs/plan.md)
+- [Settled decisions and open questions](docs/decisions.md)
+- [NDFD arrival collector](docs/ndfd-collector.md)
+- [NWS forecast collector](docs/nws-collector.md)
