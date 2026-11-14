@@ -25,6 +25,7 @@ uv run ruff format --check .
 
 ## Project documentation
 
+- [Kalshi parsing, local downloads, schemas and mutation proofs](docs/kalshi-parsers-store.md)
 - [Plan and phase scope](docs/plan.md)
 - [Settled decisions and open questions](docs/decisions.md)
 - [NDFD arrival collector](docs/ndfd-collector.md)

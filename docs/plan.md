@@ -28,15 +28,17 @@ Each question ends with a one-line answer in `docs/decisions.md`.
 6. Answered (2026-11-13). City choice: Los Angeles (KXHIGHLAX), NYC runner-up, by TWC-period volume, conditional on the KLAX NDFD cell check in Phase 2.
 7. Answered (2026-11-12, refining 2026-11-07). Settlement source: what KX* series settle on, how The Weather Company's maximum relates to the NWS CLI value, and when the series switched.
 
-### Parsers and remaining collectors
+### Parsers, store and heartbeat (scope cut 2026-11-14)
 
-1. `schemas.py` from spike findings. Tables: `market_snapshots`, `nws_forecasts` (`issued_at`, `available_at`, `target_date`), `observations`, `settlements`.
-2. Parsers: raw to Parquet, partitioned by date, rerunnable over all history.
-3. `collectors/obs.py` (station observations, every 10 minutes) and `collectors/climate.py` (Daily Climate Report, daily).
-4. `store.py` accessors, with a test that no row with `available_at > as_of` is ever returned.
-5. Heartbeat per collector and a daily staleness alert.
+Only what the mid-December milestone needs runs before Phase 2.
 
-Done when a DuckDB query returns, for any past moment in the collection window, every forecast and order book snapshot the bot could have seen at that moment, and the leakage test passes.
+1. `schemas.py` and Kalshi parsers for the configured series: raw markets and order books to Parquet, partitioned by date, rerunnable over all history, reading loose files and compaction archives alike.
+2. `store.py` accessors, with a test that no row with `available_at > as_of` is ever returned.
+3. Settlement collector: a daily raw-first fetch of settled markets (`/markets?status=settled`, plus `/historical/markets` past Kalshi's historical cutoff) in the standard envelope, with its parser and `get_settlements`.
+4. Heartbeat for the Kalshi collector and a daily staleness alert.
+5. After the milestone: `collectors/obs.py` (station observations) and `collectors/climate.py` (Daily Climate Report). Phase 2 uses IEM history for observations and CLI highs; `nws_forecasts` is built with NDFD point extraction in Phase 2.
+
+Done when a DuckDB query returns, for any past moment in the collection window, every Kalshi market snapshot and order book the bot could have seen at that moment, and the leakage test passes.
 
 ## Phase 2: baselines and scoring (by mid-December 2026)
 
