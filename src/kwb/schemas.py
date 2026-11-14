@@ -39,9 +39,17 @@ def price(value: str) -> str:
     return value
 
 
+def quote_fixed_point(value: str) -> str:
+    """Recognize fixed-point notation without interpreting terminal quote values."""
+    if not isinstance(value, str) or re.fullmatch(r"-?[0-9]+(?:\.[0-9]+)?", value) is None:
+        raise ValueError("Expected a fixed-point string")
+    return value
+
+
 UTCTimestamp = Annotated[datetime, BeforeValidator(utc_timestamp)]
 FixedPoint = Annotated[str, BeforeValidator(fixed_point)]
 Price = Annotated[str, BeforeValidator(price)]
+QuoteValue = Annotated[str, BeforeValidator(quote_fixed_point)]
 Nonempty = Annotated[str, Field(min_length=1)]
 Int32 = Annotated[int, Field(ge=-(2**31), le=2**31 - 1)]
 
@@ -179,7 +187,7 @@ class Provenance(Boundary):
     available_date: date
 
 
-class MarketSnapshot(Provenance):
+class MarketDetails(Provenance):
     ticker: Nonempty
     event_ticker: Nonempty
     series_ticker: Nonempty
@@ -200,6 +208,9 @@ class MarketSnapshot(Provenance):
     updated_time: UTCTimestamp
     open_time: UTCTimestamp
     close_time: UTCTimestamp
+
+
+class MarketSnapshot(MarketDetails):
     yes_bid_dollars: Price
     yes_ask_dollars: Price
     no_bid_dollars: Price
@@ -220,13 +231,32 @@ class MarketSnapshot(Provenance):
 
 
 class SettlementInput(MarketInput):
+    """Labels remain strict; terminal quotes are recognized but are never stored."""
+
     status: Literal["finalized"]
     settlement_ts: UTCTimestamp
     settlement_value_dollars: Price
+    yes_bid_dollars: QuoteValue
+    yes_ask_dollars: QuoteValue
+    no_bid_dollars: QuoteValue
+    no_ask_dollars: QuoteValue
+    last_price_dollars: QuoteValue
+    previous_yes_bid_dollars: QuoteValue
+    previous_yes_ask_dollars: QuoteValue
+    previous_price_dollars: QuoteValue
+    notional_value_dollars: QuoteValue
+    volume_fp: QuoteValue
+    volume_24h_fp: QuoteValue
+    open_interest_fp: QuoteValue
+    yes_bid_size_fp: QuoteValue | None = None
+    yes_ask_size_fp: QuoteValue | None = None
+    liquidity_dollars: QuoteValue | None = None
 
 
-class Settlement(MarketSnapshot):
+class Settlement(MarketDetails):
     status: Literal["finalized"]
+    price_level_structure: str
+    price_ranges: list[PriceRange]
     result: Literal["yes", "no", "scalar"]
     expiration_value: str
     settlement_ts: UTCTimestamp

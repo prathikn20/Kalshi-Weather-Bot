@@ -1,5 +1,9 @@
 # Kalshi settlements
 
+The settlement quote boundary and the original negative-size parse failure were
+superseded by the [surveyed quote-field contract](settlement-quote-fields.md).
+The original failure/proof sections below record PR #18 history.
+
 The VM archives responses; the Mac parses them. `config/nws_stations.csv` selects
 parsed event series. A KX-series query can also return legacy HIGH events, so the
 parser filters by the actual event ticker before domain validation. Collection
@@ -82,8 +86,10 @@ CRC32C and local SHA-256 verification. No raw data is transferred over SSH.
 ## Storage, labels, and revisions
 
 `SettlementInput` requires finalized status, settlement timestamp and served payout.
-`Settlement` retains market metadata/brackets, exact settlement strings, provenance,
-and `label_status` / `label`. The table is `settlements`, partitioned by UTC
+`Settlement` retains market identity/brackets, exact settlement strings, provenance,
+and `label_status` / `label`. Trading-quote values are recognized as fixed-point
+strings by the settlement input boundary and are absent from stored settlements;
+live market quote validation remains strict. The table is `settlements`, partitioned by UTC
 `available_date`, in immutable hourly generations, sorted by series, ticker,
 availability, and source identity. Source identities include `kalshi_settlements`,
 so coincident filenames in the two raw sources cannot collide.
@@ -109,7 +115,7 @@ tickers checked during planning. Revision tests explicitly alter a real fixture;
 they are synthetic before/after pairs, not claimed provider revisions.
 
 Repeat fetches retain separate source/ticker observations. Rerunning an identical
-source is idempotent. The parser reports changes in all retained served fields with both source
+source is idempotent. The parser reports changes in retained non-quote fields with both source
 identities and observation times; old rows are retained. `label_revision` identifies
 changes to result, payout, expiration value, settlement time, bounds or rules, so a
 trading-metadata revision is distinguishable from a label revision. Existing three-table generations remain readable; a new generation
