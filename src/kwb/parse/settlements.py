@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from kwb.parse.kalshi import body_json, event_identity, market_row, validate_partition
-from kwb.schemas import Provenance, Settlement, SettlementInput
+from kwb.schemas import MarketDetails, Provenance, Settlement, SettlementInput
 from kwb.store import Store, StoreError, atomic_json, configured_series, raw_hours, read_envelopes
 
 LABEL_FIELDS = (
@@ -158,7 +158,7 @@ def parse_run(envelopes, configured, exceptions, report, previous_windows):
                 if "event_ticker" in params and item["event_ticker"] != params["event_ticker"]:
                     raise ValueError("Market disagrees with requested event")
                 served = SettlementInput.model_validate(item)
-                snapshot = market_row(served, raw, actual)
+                snapshot = market_row(served, raw, actual, model=MarketDetails)
                 listed = served.event_ticker in exceptions
                 if served.result not in {"yes", "no"} and not listed:
                     raise ValueError(
@@ -166,6 +166,8 @@ def parse_run(envelopes, configured, exceptions, report, previous_windows):
                     )
                 row = Settlement(
                     **snapshot.model_dump(),
+                    price_level_structure=served.price_level_structure,
+                    price_ranges=served.price_ranges,
                     result=served.result,
                     expiration_value=served.expiration_value,
                     settlement_ts=served.settlement_ts,

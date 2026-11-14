@@ -123,6 +123,37 @@ case(
     "REQUEST_INTERVAL = 0.1",
     base + "test_collection_spaces_every_request_start_by_ten_seconds_and_never_retries_429",
 )
+# The settlement-quote contract must remain narrower than live market validation.
+case(
+    "settled-negative-quote",
+    "src/kwb/schemas.py",
+    "yes_bid_size_fp: QuoteValue | None = None",
+    "yes_bid_size_fp: FixedPoint | None = None",
+    base + "test_a_real_negative_settled_quote_size_parses_with_every_label_field_intact",
+)
+case(
+    "live-negative-quote",
+    "src/kwb/schemas.py",
+    're.fullmatch(r"\\d+(?:\\.\\d+)?", value)',
+    're.fullmatch(r"-?\\d+(?:\\.\\d+)?", value)',
+    "tests/test_settlement_quote_fields.py::"
+    "test_the_same_negative_quote_size_in_a_live_snapshot_still_raises_with_its_locator",
+)
+case(
+    "malformed-settlement-quote",
+    "src/kwb/schemas.py",
+    'if not isinstance(value, str) or re.fullmatch(r"-?[0-9]+(?:\\.[0-9]+)?", value) is None:',
+    "if False:",
+    "tests/test_settlement_quote_fields.py::"
+    "test_a_malformed_fixed_point_quote_in_any_settlement_quote_field_raises",
+)
+case(
+    "label-payout-range",
+    "src/kwb/schemas.py",
+    "if Decimal(value) > 1:",
+    "if False and Decimal(value) > 1:",
+    "tests/test_settlement_quote_fields.py::test_a_settlement_label_field_violation_still_raises",
+)
 results = []
 for name, file, old, new, test, section in cases:
     path = root / file

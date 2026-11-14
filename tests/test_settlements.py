@@ -570,7 +570,7 @@ def test_changed_served_metadata_is_reported_without_claiming_a_label_revision(t
     def update(name, value):
         payload = json.loads(value["body"])
         for market in payload["markets"]:
-            market["volume_fp"] = "123456789.99"
+            market["updated_time"] = "2026-11-14T00:00:00Z"
         value["body"] = json.dumps(payload)
 
     second = acquisition(tmp_path / "second", at=START + timedelta(days=1), edits=update)
@@ -578,14 +578,14 @@ def test_changed_served_metadata_is_reported_without_claiming_a_label_revision(t
     report = parse(first + second, store)
     assert len(report.revisions) == 6
     assert all(
-        set(r["changes"]) == {"volume_fp"} and not r["label_revision"] for r in report.revisions
+        set(r["changes"]) == {"updated_time"} and not r["label_revision"] for r in report.revisions
     )
     assert len(all_rows(store)) == 12
 
 
-def test_a_real_negative_terminal_bid_size_raises_with_the_envelope_locator(tmp_path):
+def test_a_real_negative_settled_quote_size_parses_with_every_label_field_intact(tmp_path):
     def isolate_event(name, value):
-        # Isolate domain validation from this fixture's original mid-chain cursor.
+        # Reframe the saved real event as a complete chain; served fields are untouched.
         value["request_params"].pop("cursor", None)
         payload = json.loads(value["body"])
         payload["cursor"] = ""
@@ -593,7 +593,31 @@ def test_a_real_negative_terminal_bid_size_raises_with_the_envelope_locator(tmp_
 
     inputs = acquisition(tmp_path / "raw", names=("negative-size",), edits=isolate_event)
     store = Store(tmp_path / "store")
-    with pytest.raises(ValueError, match=inputs[2].name) as error:
-        parse(inputs, store)
-    assert "yes_bid_size_fp" in str(error.value) and "-276.00" in str(error.value)
-    assert not (store.root / "manifest.json").exists()
+    report = parse(inputs, store)
+    expected = {row["ticker"]: row for row in body("negative-size")["markets"]}
+    assert expected["KXHIGHCHI-26MAY13-B60.5"]["yes_bid_size_fp"] == "-276.00"
+    rows = store.get_settlements("KXHIGHCHI", START + timedelta(hours=1))
+    assert report.settlements == len(rows) == 6
+    fields = (
+        "result",
+        "expiration_value",
+        "settlement_value_dollars",
+        "settlement_floor_dollars",
+        "settlement_bounds_type",
+        "strike_type",
+        "floor_strike",
+        "cap_strike",
+        "rules_primary",
+        "rules_secondary",
+    )
+    for row in rows:
+        served = expected[row.ticker]
+        assert all(getattr(row, key) == served.get(key) for key in fields)
+        assert row.settlement_ts == datetime.fromisoformat(served["settlement_ts"])
+        assert row.label_status == "labeled" and row.label == row.result
+        assert row.available_at == START + timedelta(seconds=2)
+    assert sum(row.label == "yes" for row in rows) == 1
+    from test_settlement_quote_fields import QUOTE_FIELDS
+
+    assert not (QUOTE_FIELDS & set(Settlement.model_fields))
+    assert not any(QUOTE_FIELDS & set(row) for row in all_rows(store))

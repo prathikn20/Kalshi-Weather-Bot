@@ -55,6 +55,8 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 - 2026-11-14: Finalized configured events must have six markets and exactly one YES; anything else raises unless listed in config/settlement_exceptions.csv (event ticker, reason, evidence), which changes only through planning. Listed events are stored but carry no label. First entry: KXHIGHMIA-26APR11, six finalized markets with no YES and scalar payouts 0.9900/0.0100, confirmed by cached and fresh historical responses.
 - 2026-11-14: get_market_snapshots selects the latest visible observation per ticker, then keeps it only if its served close_time is after as_of; filtering on close time first could resurrect an older close schedule.
 
+- 2026-11-14: Settlement records validate label fields strictly (result, payouts, settlement_ts, expiration value, bounds, rules) and accept trading-quote fields (bid/ask prices and sizes, last and previous prices, volume, open interest, liquidity, notional) only as well-formed fixed-point strings without sign or range checks, because settlements neither store nor use them. Live market snapshots keep their nonnegative checks. Trigger: KXHIGHCHI-26MAY13-B60.5 serves yes_bid_size_fp "-276.00" in its historical settled record, which rejected the first full settlement acquisition; the step-1 survey found failures in quote fields only.
+
 ## Open (answer during the spike)
 
 - Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).

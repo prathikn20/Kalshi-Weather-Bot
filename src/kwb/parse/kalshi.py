@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlsplit
 
 from kwb.schemas import (
     BookInput,
+    MarketDetails,
     MarketInput,
     MarketSnapshot,
     OrderBookHeader,
@@ -80,7 +81,13 @@ def rules_bounds(rules: str) -> tuple[int | None, int | None, bool, bool]:
     raise ValueError("Unrecognized literal temperature bounds in primary rules")
 
 
-def market_row(market: MarketInput, raw: RawEnvelope, series: str) -> MarketSnapshot:
+def market_row(
+    market: MarketInput,
+    raw: RawEnvelope,
+    series: str,
+    *,
+    model: type[MarketDetails] = MarketSnapshot,
+) -> MarketDetails:
     actual_series, target = event_identity(market.event_ticker)
     if actual_series != series or not market.ticker.startswith(market.event_ticker + "-"):
         raise ValueError("Market identity disagrees with requested series/event")
@@ -104,8 +111,8 @@ def market_row(market: MarketInput, raw: RawEnvelope, series: str) -> MarketSnap
             raise ValueError("Unexpected structured bound")
         bounds_source = "structured"
     fields = market.model_dump()
-    values = {key: fields[key] for key in MarketSnapshot.model_fields if key in fields}
-    return MarketSnapshot(
+    values = {key: fields[key] for key in model.model_fields if key in fields}
+    return model(
         **values,
         **raw.provenance(),
         series_ticker=series,
@@ -118,7 +125,7 @@ def market_row(market: MarketInput, raw: RawEnvelope, series: str) -> MarketSnap
     )
 
 
-def validate_partition(rows: list[MarketSnapshot]) -> None:
+def validate_partition(rows: list[MarketDetails]) -> None:
     if len(rows) != 6 or len({row.ticker for row in rows}) != 6:
         raise ValueError("Event must contain exactly six distinct markets")
     low = [row for row in rows if row.lower_bound_f is None]
