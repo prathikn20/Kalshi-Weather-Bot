@@ -32,9 +32,9 @@ Each question ends with a one-line answer in `docs/decisions.md`.
 
 Only what the mid-December milestone needs runs before Phase 2.
 
-1. `schemas.py` and Kalshi parsers for the configured series: raw markets and order books to Parquet, partitioned by date, rerunnable over all history, reading loose files and compaction archives alike.
-2. `store.py` accessors, with a test that no row with `available_at > as_of` is ever returned.
-3. Settlement collector: a daily raw-first fetch of settled markets (`/markets?status=settled`, plus `/historical/markets` past Kalshi's historical cutoff) in the standard envelope, with its parser and `get_settlements`.
+1. Done (2026-11-14, PR #17). `schemas.py` and Kalshi parsers for the configured series: raw markets and order books to Parquet, partitioned by date, rerunnable over all history, reading loose files and compaction archives alike.
+2. Done (2026-11-14, PR #17). `store.py` accessors, with a test that no row with `available_at > as_of` is ever returned.
+3. Done. Settlement collector: daily raw-first archive of settled markets (live settled window for all discovered series; historical tier backfilled once and rescanned weekly for the configured series), with its parser, `get_settlements` and an exceptions list for events without exactly one YES.
 4. Heartbeat for the Kalshi collector and a daily staleness alert.
 5. After the milestone: `collectors/obs.py` (station observations) and `collectors/climate.py` (Daily Climate Report). Phase 2 uses IEM history for observations and CLI highs; `nws_forecasts` is built with NDFD point extraction in Phase 2.
 

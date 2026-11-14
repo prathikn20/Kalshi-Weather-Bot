@@ -36,6 +36,7 @@ from kwb.schemas import (
     OrderBookLevel,
     OrderBookSnapshot,
     Provenance,
+    Settlement,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +50,7 @@ MODELS = {
     "orderbook_snapshots": OrderBookHeader,
     "orderbook_levels": OrderBookLevel,
 }
+TABLE_MODELS = {**MODELS, "settlements": Settlement}
 NULLABLE = {
     "strike_type",
     "floor_strike",
@@ -58,6 +60,9 @@ NULLABLE = {
     "yes_bid_size_fp",
     "yes_ask_size_fp",
     "liquidity_dollars",
+    "settlement_floor_dollars",
+    "settlement_bounds_type",
+    "label",
 }
 TIMESTAMPS = {
     "available_at",
@@ -66,6 +71,7 @@ TIMESTAMPS = {
     "updated_time",
     "open_time",
     "close_time",
+    "settlement_ts",
 }
 INTEGERS = {
     "floor_strike",
@@ -240,8 +246,12 @@ def _raw_members(path: Path) -> Iterator[tuple[str, bytes]]:
         raise StoreError(f"{path}: truncated zstd frame")
 
 
-def read_envelopes(paths: Iterable[Path]) -> tuple[list[RawEnvelope], int]:
+def read_envelopes(
+    paths: Iterable[Path], *, source: str = "kalshi"
+) -> tuple[list[RawEnvelope], int]:
     """Read one hour, deduplicating decompressed envelope identities, not bodies."""
+    if source not in {"kalshi", "kalshi_settlements"}:
+        raise StoreError(f"Unexpected raw source {source!r}")
     seen = {}
     duplicates = 0
     for path in paths:
@@ -249,7 +259,7 @@ def read_envelopes(paths: Iterable[Path]) -> tuple[list[RawEnvelope], int]:
         try:
             for name, payload in _raw_members(path):
                 locator = f"{path}!{name}" if ARCHIVE.fullmatch(path.name) else str(path)
-                source_id = f"kalshi/{name[:10]}/{name}"
+                source_id = f"{source}/{name[:10]}/{name}"
                 digest = hashlib.sha256(payload).hexdigest()
                 if source_id in seen:
                     if seen[source_id].sha256 != digest:
@@ -290,11 +300,15 @@ class Store:
         return manifest
 
     def _files(self, manifest: dict, table: str, as_of: datetime) -> list[str]:
-        return [
-            str(self.root / item["files"][table])
-            for hour, item in sorted(manifest["hours"].items())
-            if hour[:10] <= as_of.date().isoformat()
-        ]
+        files = []
+        for hour, item in sorted(manifest["hours"].items()):
+            version = item.get("tables_version", 1)
+            expected = MODELS if version == 1 else TABLE_MODELS
+            if version not in (1, 2) or set(item["files"]) != set(expected):
+                raise StoreError(f"{hour}: invalid table inventory")
+            if hour[:10] <= as_of.date().isoformat() and table in expected:
+                files.append(str(self.root / item["files"][table]))
+        return files
 
     def _query(self, sql: str, params: list) -> list[dict]:
         import duckdb
@@ -314,14 +328,34 @@ class Store:
                 SELECT * FROM read_parquet(?, hive_partitioning=false)
                 WHERE series_ticker = ? AND available_at <= ?
             )
-            SELECT * FROM visible
+            , latest AS (
+                SELECT * FROM visible
+                QUALIFY row_number() OVER (
+                    PARTITION BY ticker ORDER BY available_at DESC, source_id DESC
+                ) = 1
+            )
+            SELECT * FROM latest WHERE close_time > ? ORDER BY ticker
+        """,
+            [files, series, as_of, as_of],
+        )
+        return [MarketSnapshot.model_validate(row) for row in rows]
+
+    def get_settlements(self, series: str, as_of: datetime) -> list[Settlement]:
+        as_of = aware_utc(as_of)
+        files = self._files(self._manifest(), "settlements", as_of)
+        if not files:
+            return []
+        rows = self._query(
+            """
+            SELECT * FROM read_parquet(?, hive_partitioning=false)
+            WHERE series_ticker = ? AND available_at <= ?
             QUALIFY row_number() OVER (
                 PARTITION BY ticker ORDER BY available_at DESC, source_id DESC
             ) = 1 ORDER BY ticker
-        """,
+            """,
             [files, series, as_of],
         )
-        return [MarketSnapshot.model_validate(row) for row in rows]
+        return [Settlement.model_validate(row) for row in rows]
 
     def get_market_history(
         self, series: str, start: datetime, as_of: datetime
@@ -402,17 +436,17 @@ class Store:
                     raise StoreError(f"{source}: conflicting envelope on rerun")
                 combined_sources[source] = digest
             tables = {}
-            for name, model in MODELS.items():
+            for name, model in TABLE_MODELS.items():
                 existing = (
                     []
-                    if not previous
+                    if not previous or name not in previous["files"]
                     else pq.ParquetFile(self.root / previous["files"][name]).read().to_pylist()
                 )
                 # Recompute supplied sources, retaining older supplements not supplied this run.
                 existing = [record for record in existing if record["source_id"] not in sources]
                 merged = {}
                 observations = {}
-                for record in existing + [row.model_dump() for row in rows[name]]:
+                for record in existing + [row.model_dump() for row in rows.get(name, [])]:
                     record = model.model_validate(record).model_dump()
                     if (
                         record["available_at"].strftime("%Y-%m-%dT%H") != hour
@@ -451,7 +485,7 @@ class Store:
                             row["source_id"],
                         )
                     )
-                    if name == "market_snapshots"
+                    if name in {"market_snapshots", "settlements"}
                     else (
                         lambda row: (
                             row["ticker"],
@@ -467,9 +501,9 @@ class Store:
                 )
             if previous and combined_sources == previous_sources:
                 # Rows were still checked above: source hashes alone never mask a parser change.
-                unchanged = all(
+                unchanged = set(previous["files"]) == set(TABLE_MODELS) and all(
                     tables[name].equals(pq.ParquetFile(self.root / previous["files"][name]).read())
-                    for name in MODELS
+                    for name in TABLE_MODELS
                 )
                 if unchanged:
                     return
@@ -508,5 +542,9 @@ class Store:
                         os.close(fd)
                     directory = directory.parent
                 files[name] = str(relative)
-            manifest["hours"][hour] = {"sources_file": str(source_file), "files": files}
+            manifest["hours"][hour] = {
+                "sources_file": str(source_file),
+                "files": files,
+                "tables_version": 2,
+            }
             atomic_json(self.root / "manifest.json", manifest)

@@ -77,9 +77,9 @@ history = store.get_market_history("KXHIGHLAX", datetime(2026, 11, 10, 22, tzinf
 book = store.get_orderbook(latest[0].ticker, as_of)
 ```
 
-`get_market_snapshots` returns the latest available record per ticker, including
-older tickers that no longer appear in open-market collection. It does not infer
-closures from absence. `get_market_history` includes both boundaries:
+`get_market_snapshots` selects the latest available record per ticker, then
+requires its served close time to be strictly after `as_of`. It does not infer
+closures from absence or use future close-date revisions. `get_market_history` includes both boundaries:
 `start <= available_at <= as_of`. `get_orderbook` returns the latest complete
 observation, an empty snapshot for an observed empty book, or `None` if never seen.
 Query timestamps must be aware and are normalized to UTC; reversed windows raise.
@@ -87,7 +87,8 @@ Query timestamps must be aware and are normalized to UTC; reversed windows raise
 ## Schema and design choices
 
 The exact strict models are in `src/kwb/schemas.py`; the explicit Arrow schemas are
-in `src/kwb/store.py`. The three tables are:
+in `src/kwb/store.py`. The three open-market tables are (settlements are described in
+[settlements.md](settlements.md)):
 
 | Table | Main columns |
 | --- | --- |

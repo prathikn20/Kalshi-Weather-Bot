@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 
 def utc_timestamp(value: str | datetime) -> datetime:
@@ -217,6 +217,33 @@ class MarketSnapshot(Provenance):
     liquidity_dollars: FixedPoint | None
     price_level_structure: str
     price_ranges: list[PriceRange]
+
+
+class SettlementInput(MarketInput):
+    status: Literal["finalized"]
+    settlement_ts: UTCTimestamp
+    settlement_value_dollars: Price
+
+
+class Settlement(MarketSnapshot):
+    status: Literal["finalized"]
+    result: Literal["yes", "no", "scalar"]
+    expiration_value: str
+    settlement_ts: UTCTimestamp
+    settlement_value_dollars: Price
+    settlement_floor_dollars: Price | None
+    settlement_bounds_type: str | None
+    label_status: Literal["labeled", "exception"]
+    label: Literal["yes", "no"] | None
+
+    @model_validator(mode="after")
+    def labels_follow_exception_status(self):
+        if self.label_status == "exception":
+            if self.label is not None:
+                raise ValueError("An excepted event must carry no label")
+        elif self.result not in {"yes", "no"} or self.label != self.result:
+            raise ValueError("A labeled settlement must label its binary result")
+        return self
 
 
 class OrderBookHeader(Provenance):

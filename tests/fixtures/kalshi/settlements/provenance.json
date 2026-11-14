@@ -1,0 +1,101 @@
+{
+  "cutoff-start": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/historical/cutoff",
+    "request_params": {},
+    "received_at": "2026-11-14T20:20:02.102776Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202002.102776Z.json.gz",
+    "raw_envelope_sha256": "1eab2aaccc44218a07596c167798cb486f122c46b4a9509bd54b679db338b93f",
+    "original_body_sha256": "9d9b1c211d6f1a60f2f4481aaba1a1a2c58432458b883d4bb408a3e51469cf02",
+    "fixture_sha256": "bb26911a5f85281612a983301928038a4c208897b4235550694740798cfc3975",
+    "projection": "Complete response; body JSON whitespace normalized only."
+  },
+  "discovery": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/series",
+    "request_params": {},
+    "received_at": "2026-11-14T20:20:12.848721Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202012.848721Z.json.gz",
+    "raw_envelope_sha256": "3faef555bd786e5da46ecda9b95ea8be936b93bfa1a24dd9b3b0a31fdc09c192",
+    "original_body_sha256": "1d4409f15e325f5d7f952f3085760f90252622672117c25fdae21313c7d1b429",
+    "fixture_sha256": "34bf47ce381523ef6db1f98f7880408b1a7d4bbeb417680e15200a6f8e6da6f0",
+    "projection": "Retain KXHIGHLAX and KXHIGHMIA series metadata only; no field projection."
+  },
+  "live": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/markets?series_ticker=KXHIGHLAX&status=settled&min_settled_ts=1789430399&max_settled_ts=1794687553&limit=1000",
+    "request_params": {
+      "series_ticker": "KXHIGHLAX",
+      "status": "settled",
+      "min_settled_ts": 1789430399,
+      "max_settled_ts": 1794687553,
+      "limit": 1000
+    },
+    "received_at": "2026-11-14T20:20:22.309525Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202022.309525Z.json.gz",
+    "raw_envelope_sha256": "c3a6336b38dbb0eefa158af89b227b3f755eabfdd0296fb8491637b8271924e4",
+    "original_body_sha256": "4940efead22827ef42f1b6cebc776ea60a073c9c08737fa5eb129ce3240f170b",
+    "fixture_sha256": "600cefd2def91885582c0fa7e671471dd1c8604acc86516d817bff3f90a60ade",
+    "projection": "Retain all six markets of the first complete KXHIGHLAX event; preserve cursor from complete listing."
+  },
+  "historical-page-1": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/historical/markets?event_ticker=KXHIGHMIA-24NOV27&limit=3",
+    "request_params": {
+      "event_ticker": "KXHIGHMIA-24NOV27",
+      "limit": 3
+    },
+    "received_at": "2026-11-14T20:20:32.070071Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202032.070071Z.json.gz",
+    "raw_envelope_sha256": "c411386e3d365371aa52f49d8c9ddf226d346f8c3993a703c101524679dbb140",
+    "original_body_sha256": "84bd14cc91a36e6844be0ee4680f15806b50e78a7d86430e653d60893e2d9bdf",
+    "fixture_sha256": "0f731467675e6ab7709e58390934d281d2b97cf39be30ba15e9e6335ba3c5b91",
+    "projection": "Complete response; body JSON whitespace normalized only."
+  },
+  "historical-page-2": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/historical/markets?event_ticker=KXHIGHMIA-24NOV27&limit=3&cursor=CgsI98aWugYQ0K-lexIXS1hISUdITUlBLTI0Tk9WMjctQjgwLjU",
+    "request_params": {
+      "event_ticker": "KXHIGHMIA-24NOV27",
+      "limit": 3,
+      "cursor": "CgsI98aWugYQ0K-lexIXS1hISUdITUlBLTI0Tk9WMjctQjgwLjU"
+    },
+    "received_at": "2026-11-14T20:20:42.100765Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202042.100765Z.json.gz",
+    "raw_envelope_sha256": "5371573f946a95fc7271f046ff937b7ddc8790e5a005d9e94858f05785facc56",
+    "original_body_sha256": "c5b57ad5e18333010236f135249e897513f4ff647c34aa67bf304869392642b2",
+    "fixture_sha256": "c58a83b092b4f4c865f83214d3da79ea74489551a18decaae218e666064d3255",
+    "projection": "Complete response; body JSON whitespace normalized only."
+  },
+  "scalar": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/historical/markets?event_ticker=KXHIGHMIA-26APR11&limit=1000",
+    "request_params": {
+      "event_ticker": "KXHIGHMIA-26APR11",
+      "limit": 1000
+    },
+    "received_at": "2026-11-14T20:20:52.078643Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202052.078643Z.json.gz",
+    "raw_envelope_sha256": "16ba5fd2414090f0f0cda8df8e6bd1b38881ee14a1a907bd9517d76d2e9ba205",
+    "original_body_sha256": "d79abfd6d50d42a0dbdafb007ad61e844bb196829650c0ba12cfc3954ffec844",
+    "fixture_sha256": "3fe0f6ac338f2390f5a3f6418f78c0ac1856491324122385c65ddc920e37edb4",
+    "projection": "Complete response; body JSON whitespace normalized only."
+  },
+  "cutoff-end": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/historical/cutoff",
+    "request_params": {},
+    "received_at": "2026-11-14T20:21:02.075393Z",
+    "raw_path": "state/settlements/fixture-acquisition/raw/kalshi_settlements/2026-11-14/2026-11-14T202102.075393Z.json.gz",
+    "raw_envelope_sha256": "0e391ed1d47b33bd72e2f09360e7badcfef002504b5ebec13b57924c4cc9e00a",
+    "original_body_sha256": "9d9b1c211d6f1a60f2f4481aaba1a1a2c58432458b883d4bb408a3e51469cf02",
+    "fixture_sha256": "a955716b7aabee6695c3196d0455d65a4342e49cca9e0704d89c62cc24cbadce",
+    "projection": "Complete response; body JSON whitespace normalized only."
+  },
+  "negative-size": {
+    "request_url": "https://external-api.kalshi.com/trade-api/v2/historical/markets?series_ticker=KXHIGHCHI&limit=1000",
+    "request_params": {
+      "series_ticker": "KXHIGHCHI",
+      "limit": 1000
+    },
+    "received_at": "2026-11-14T20:26:19.896508Z",
+    "raw_path": "raw/kalshi_settlements/2026-11-14/2026-11-14T202619.896508Z.json.gz",
+    "raw_envelope_sha256": "9cd5b17eb6955dafd32118e9324acf110fcfcdedb5c0b0d92fec726b7cc54892",
+    "original_body_sha256": "25c7b3a8aa6fede7fddbe738d7dfb083f757633e616b82d6df11a618233a90d6",
+    "fixture_sha256": "d04b9f67826c9802f86cefe1101fdb7ada3534b709266125e1cd08133c7bc4e5",
+    "projection": "Retain the complete event containing a real negative yes_bid_size_fp; preserve original response cursor."
+  }
+}

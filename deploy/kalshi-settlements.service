@@ -1,0 +1,17 @@
+[Unit]
+Description=Archive Kalshi settled markets (daily live, weekly configured history)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=prathik
+WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
+ExecStart=/home/prathik/.local/bin/uv run --no-sync python -m kwb.collectors.settlements
+Environment=PYTHONUNBUFFERED=1
+Nice=19
+CPUQuota=5%
+CPUWeight=1
+IOWeight=1
+MemoryMax=128M
+TimeoutStartSec=2h

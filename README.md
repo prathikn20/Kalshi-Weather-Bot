@@ -5,6 +5,7 @@ Calibrated probabilistic forecaster for Kalshi daily-high temperature markets, p
 ## Running on the VM
 
 - `kwb.collectors.kalshi`: `deploy/kalshi-collector.service`; open markets and order books every 60 seconds, with hourly series discovery.
+- `kwb.collectors.settlements`: `deploy/kalshi-settlements.service` and `.timer`; daily live settled windows and weekly configured historical scans, with ten-second request pacing.
 - `kwb.collectors.nws`: `deploy/nws-collector.service`; point forecasts for configured settlement sites every 30 minutes.
 - `kwb.collectors.ndfd`: `deploy/ndfd-collector.service` and `deploy/ndfd-collector.timer`; MaxT arrival listings every five minutes UTC, without GRIB downloads.
 - `kwb.ops.compact`: `deploy/raw-compaction.service` and `deploy/raw-compaction.timer`; compact completed raw hours at minute :10 each hour, with a 120-second budget.
@@ -26,6 +27,7 @@ uv run ruff format --check .
 ## Project documentation
 
 - [Kalshi parsing, local downloads, schemas and mutation proofs](docs/kalshi-parsers-store.md)
+- [Settlement collection, exceptions, parsing and deployment](docs/settlements.md)
 - [Plan and phase scope](docs/plan.md)
 - [Settled decisions and open questions](docs/decisions.md)
 - [NDFD arrival collector](docs/ndfd-collector.md)
