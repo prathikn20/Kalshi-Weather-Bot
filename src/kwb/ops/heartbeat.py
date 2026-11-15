@@ -12,6 +12,7 @@ import math
 import os
 import re
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -37,6 +38,13 @@ FIXED_POINT = re.compile(r"\d+(?:\.\d+)?")
 
 class CheckError(ValueError):
     """A fixed diagnostic code, safe to send and log without exception details."""
+
+
+@dataclass
+class CheckStats:
+    """Per-run counts survive inspection failures without keeping raw payloads."""
+
+    skipped_oversized: int = 0
 
 
 def filename(stamp: datetime) -> str:
@@ -109,11 +117,13 @@ def newest_candidates(
     return sorted(candidates, reverse=True)
 
 
-def read_envelope(path: Path) -> dict:
+def read_envelope(path: Path) -> dict | None:
     with gzip.open(path, "rb") as stream:
         payload = stream.read(MAX_ENVELOPE_BYTES + 1)
     if len(payload) > MAX_ENVELOPE_BYTES:
-        raise CheckError("envelope_size_exhausted")
+        # An unread envelope cannot supply evidence. Keep looking within the
+        # existing window instead of letting large discovery responses mask it.
+        return None
     envelope = strict_json(payload)
     required = {
         "request_url",
@@ -206,7 +216,13 @@ def qualifying_endpoint(envelope: dict) -> str | None:
     return "orderbooks"
 
 
-def inspect_collection(raw_root: Path, as_of: datetime, window: float = WINDOW_SECONDS) -> None:
+def inspect_collection(
+    raw_root: Path,
+    as_of: datetime,
+    window: float = WINDOW_SECONDS,
+    stats: CheckStats | None = None,
+) -> None:
+    stats = stats if stats is not None else CheckStats()
     if as_of.tzinfo is None or as_of.utcoffset() != timedelta(0):
         raise CheckError("check_time_must_be_utc")
     if not math.isfinite(window) or not 0 < window <= WINDOW_SECONDS:
@@ -217,6 +233,10 @@ def inspect_collection(raw_root: Path, as_of: datetime, window: float = WINDOW_S
     for path in candidates:
         check_budget(deadline)
         envelope = read_envelope(path)
+        if envelope is None:
+            stats.skipped_oversized += 1
+            check_budget(deadline)
+            continue
         age = (as_of - timestamp(envelope["received_at"])).total_seconds()
         if not 0 <= age <= window:
             raise CheckError("envelope_outside_freshness_window")
@@ -251,16 +271,20 @@ def send_ping(url: str, reason: str | None) -> None:
 
 
 def run_once(raw_root: Path, as_of: datetime, window: float = WINDOW_SECONDS) -> int:
+    stats = CheckStats()
     try:
         url = os.environ[PING_URL_VARIABLE]
         if PING_URL.fullmatch(url) is None:
             raise CheckError("invalid_ping_configuration")
     except Exception:
-        LOGGER.error("Heartbeat configuration unavailable or invalid")
+        LOGGER.error(
+            "Heartbeat configuration unavailable or invalid skipped_oversized=%d",
+            stats.skipped_oversized,
+        )
         return 1
     reason = None
     try:
-        inspect_collection(raw_root, as_of, window)
+        inspect_collection(raw_root, as_of, window, stats)
     except CheckError as error:
         # Only literal codes generated here may cross the secret-bearing boundary.
         safe_codes = {
@@ -274,7 +298,6 @@ def run_once(raw_root: Path, as_of: datetime, window: float = WINDOW_SECONDS) ->
             "malformed_filename",
             "unexpected_envelope_type",
             "envelope_budget_exhausted",
-            "envelope_size_exhausted",
             "malformed_envelope",
             "inconsistent_envelope_timestamp",
             "unexpected_envelope_origin",
@@ -298,12 +321,14 @@ def run_once(raw_root: Path, as_of: datetime, window: float = WINDOW_SECONDS) ->
     try:
         send_ping(url, reason)
     except Exception:
-        LOGGER.error("Heartbeat ping failed")
+        LOGGER.error("Heartbeat ping failed skipped_oversized=%d", stats.skipped_oversized)
         return 1
     if reason is not None:
-        LOGGER.error("Heartbeat reported failure: %s", reason)
+        LOGGER.error(
+            "Heartbeat reported failure: %s skipped_oversized=%d", reason, stats.skipped_oversized
+        )
         return 1
-    LOGGER.info("Heartbeat reported success")
+    LOGGER.info("Heartbeat reported success skipped_oversized=%d", stats.skipped_oversized)
     return 0
 
 
