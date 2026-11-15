@@ -1,0 +1,17 @@
+[Unit]
+Description=Verify fresh Kalshi envelopes and ping the external dead-man's switch
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=prathik
+WorkingDirectory=/home/prathik/Kalshi-Weather-Bot
+ExecStart=/home/prathik/.local/bin/uv run python -m kwb.ops.heartbeat
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/kwb/heartbeat.env
+TimeoutStartSec=120s
+Nice=10
+CPUQuota=20%
+CPUWeight=20
+IOWeight=10

@@ -35,7 +35,7 @@ Only what the mid-December milestone needs runs before Phase 2.
 1. Done (2026-11-14, PR #17). `schemas.py` and Kalshi parsers for the configured series: raw markets and order books to Parquet, partitioned by date, rerunnable over all history, reading loose files and compaction archives alike.
 2. Done (2026-11-14, PR #17). `store.py` accessors, with a test that no row with `available_at > as_of` is ever returned.
 3. Done. Settlement collector: daily raw-first archive of settled markets (live settled window for all discovered series; historical tier backfilled once and rescanned weekly for the configured series), with its parser, `get_settlements` and an exceptions list for events without exactly one YES.
-4. Heartbeat for the Kalshi collector and a daily staleness alert.
+4. Done (2026-11-15, PR #20). Heartbeat for the Kalshi collector: a VM timer checks every 5 minutes that fresh Kalshi market and order-book envelopes are on disk and pings an external dead-man's switch (healthchecks.io), which emails when pings stop or report failure.
 5. After the milestone: `collectors/obs.py` (station observations) and `collectors/climate.py` (Daily Climate Report). Phase 2 uses IEM history for observations and CLI highs; `nws_forecasts` is built with NDFD point extraction in Phase 2.
 
 Done when a DuckDB query returns, for any past moment in the collection window, every Kalshi market snapshot and order book the bot could have seen at that moment, and the leakage test passes.
