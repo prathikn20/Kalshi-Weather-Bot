@@ -59,6 +59,8 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 
 - 2026-11-15: Kalshi collector liveness is checked every 5 minutes by a systemd timer on the VM that inspects archived envelopes, not the process: it pings a healthchecks.io check only when a 2xx /markets envelope and a 2xx order-book envelope have received_at within the last 300 s, and sends the check's fail signal with the reason otherwise. The alert comes from outside the VM, so a dead VM, a dead collector, a dead timer and a collector that runs but archives nothing all produce the same email. Supersedes plan.md's "daily staleness alert": order books cannot be re-downloaded, so a daily check could lose up to a day of them before anyone knows. The ping URL is a secret held in an EnvironmentFile outside the repo. Limit: alerting depends on healthchecks.io and email delivery, and a leaked ping URL could mask an outage.
 
+- 2026-11-15: The heartbeat skips envelopes larger than its 16 MiB read limit instead of failing. The hourly unfiltered /series response decompresses to about 21.5 MB; reading newest first during a discovery cycle reached it before the cycle's order books and sent a false /fail at 17:40 UTC while collection was healthy. Skipping cannot produce a false success, because success still requires fresh market and order-book envelopes.
+
 ## Open (answer during the spike)
 
 - Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).
