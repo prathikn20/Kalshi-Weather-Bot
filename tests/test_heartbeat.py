@@ -437,3 +437,59 @@ def test_even_check_errors_containing_the_secret_are_replaced_by_a_fixed_reason(
     monkeypatch.setattr(hb, "inspect_collection", fail)
     assert hb.run_once(root, NOW) == 1
     assert calls == [(SECRET, "collection_check_exception")]
+
+
+def small_market(root, at):
+    """Project a real market to the ticker field needed by this liveness check."""
+    market = json.loads(saved_envelope(MARKET)["body"])["markets"][0]
+    return put(root, MARKET, at, body=json.dumps({"markets": [{"ticker": market["ticker"]}]}))
+
+
+def test_an_oversized_real_series_envelope_between_fresh_markets_and_older_books_preserves_success(
+    tmp_path, monkeypatch, caplog
+):
+    assert hb.MAX_ENVELOPE_BYTES == 16 * 1024 * 1024
+    monkeypatch.setattr(hb, "MAX_ENVELOPE_BYTES", 1500)
+    monkeypatch.setenv("KWB_HEARTBEAT_PING_URL", SECRET)
+    calls = []
+    monkeypatch.setattr(hb, "send_ping", lambda url, reason: calls.append(reason))
+    caplog.set_level(logging.INFO)
+    market = small_market(tmp_path, NOW - timedelta(seconds=2))
+    # This committed real /series response retains two complete series records.
+    series = put(tmp_path, "settlements/discovery.json.gz", NOW - timedelta(seconds=5))
+    book = put(tmp_path, SINGLE, NOW - timedelta(seconds=10))
+    assert len(gzip.decompress(market.read_bytes())) <= hb.MAX_ENVELOPE_BYTES
+    assert len(gzip.decompress(book.read_bytes())) <= hb.MAX_ENVELOPE_BYTES
+    assert len(gzip.decompress(series.read_bytes())) > hb.MAX_ENVELOPE_BYTES
+    assert hb.run_once(tmp_path, NOW) == 0
+    assert calls == [None]
+    assert "Heartbeat reported success skipped_oversized=1" in caplog.text
+    assert SECRET not in caplog.text
+    assert str(tmp_path) not in caplog.text
+
+
+def test_oversized_only_order_book_candidates_still_fail_with_missing_fresh_evidence(
+    tmp_path, monkeypatch, caplog
+):
+    monkeypatch.setattr(hb, "MAX_ENVELOPE_BYTES", 1500)
+    monkeypatch.setenv("KWB_HEARTBEAT_PING_URL", SECRET)
+    calls = []
+    monkeypatch.setattr(hb, "send_ping", lambda url, reason: calls.append(reason))
+    caplog.set_level(logging.INFO)
+    small_market(tmp_path, NOW - timedelta(seconds=2))
+    put(tmp_path, "settlements/discovery.json.gz", NOW - timedelta(seconds=5))
+    for age in (10, 15):
+        book = put(tmp_path, BATCH, NOW - timedelta(seconds=age))
+        assert len(gzip.decompress(book.read_bytes())) > hb.MAX_ENVELOPE_BYTES
+    stats = hb.CheckStats()
+    with pytest.raises(hb.CheckError, match="^missing_fresh_market_or_orderbook_evidence$"):
+        hb.inspect_collection(tmp_path, NOW, stats=stats)
+    assert stats.skipped_oversized == 3
+    assert hb.run_once(tmp_path, NOW) == 1
+    assert calls == ["missing_fresh_market_or_orderbook_evidence"]
+    assert (
+        "Heartbeat reported failure: missing_fresh_market_or_orderbook_evidence skipped_oversized=3"
+        in caplog.text
+    )
+    assert SECRET not in caplog.text
+    assert str(tmp_path) not in caplog.text

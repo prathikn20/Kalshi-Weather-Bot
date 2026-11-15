@@ -12,7 +12,10 @@ Healthchecks.io only after finding both kinds of usable evidence with
 This checks data arriving on disk, rather than a process merely being alive.
 It does not prove every series was collected, complete pagination, or complete
 batch membership; those are parser responsibilities. Empty listing responses and
-non-2xx responses do not count. Unreadable or malformed inspected evidence fails
+non-2xx responses do not count. Envelopes exceeding the 16 MiB read limit are
+skipped without supplying evidence; `skipped_oversized` is included in success
+and failure log lines, including ping/configuration errors. Other unreadable or
+malformed inspected evidence fails
 the run. The reader stops once both kinds of evidence have been established;
 it does not audit older files for corruption.
 
@@ -58,8 +61,9 @@ directories, opens compaction archives, or holds compaction's lock.
 A flat date directory has no ordered index: the check must enumerate its entries.
 It does not decompress or stat old entries. Named limits are 250,000 directory
 entries, 1,024 recent candidate envelopes, 16 MiB decompressed per envelope and a
-10-second check budget, checked between filesystem operations. Exceeding a limit
-fails conservatively. The unit's 120-second timeout also bounds stalled I/O or
+10-second check budget, checked between filesystem operations. Oversized envelopes
+are skipped after reading at most the limit plus one byte; the cap is not raised
+for discovery. Exceeding any other budget fails conservatively. The unit's 120-second timeout also bounds stalled I/O or
 network operations; the HTTP timeout is five seconds.
 
 The 300-second freshness window equals compaction's five-minute grace. Compaction
@@ -160,3 +164,64 @@ success where the test required failure. The midnight mutant raised
 
 Full mutation transcripts are retained locally under the main checkout's ignored
 `state/heartbeat/proofs/` directory. No deliberately broken code is committed.
+
+
+## Oversized discovery incident and regression tests (2026-11-15)
+
+At 17:40:05 UTC, the heartbeat sent `/fail` with `envelope_size_exhausted` while
+collection was healthy. Hourly discovery fetches unfiltered `/series`; a real
+2026-11-09 envelope decompresses to 21,503,883 bytes, above the 16 MiB cap.
+During that discovery cycle, newest-first inspection reached `/series` before
+older order-book evidence and aborted instead of continuing.
+
+The fix keeps the 16 MiB cap and skips/counts any oversized envelope. Its endpoint
+and contents are unknown because it was not fully read, so it can supply no
+market or book evidence. A run succeeds only if other fresh, fully validated
+market and book envelopes exist. A window containing only oversized book
+candidates still reports `missing_fresh_market_or_orderbook_evidence`. Per-run
+counts survive later check or ping failures without retaining payloads, and no
+paths or ping secrets are added to logs. All other strict checks stay unchanged.
+
+The two tests reuse the real trimmed `/series` response at
+`tests/fixtures/kalshi/settlements/discovery.json.gz` (its provenance is recorded
+beside it). They patch the cap to 1,500 bytes, rebase collection timestamps into
+the test window, and place discovery between newer markets and older books.
+The market body is projected from a real response onto the required ticker;
+the single-book response is retained intact apart from its envelope timestamps.
+
+| Test | What it checks | Deliberate break and observed failure |
+| --- | --- | --- |
+| `test_an_oversized_real_series_envelope_between_fresh_markets_and_older_books_preserves_success` | Oversized discovery cannot hide a fresh market and an older fresh book; success logs `skipped_oversized=1`. | Restore raising `envelope_size_exhausted`: **1 failed**, `assert 1 == 0`. Remove the success count: **1 failed**, expected count missing from logs. |
+| `test_oversized_only_order_book_candidates_still_fail_with_missing_fresh_evidence` | Oversized candidates never count as book evidence; failure logs all three skips and the missing-evidence reason. | Restore raising `envelope_size_exhausted`: **1 failed**, the expected missing-evidence exception did not match. Remove the failure count: **1 failed**, expected count missing from logs. |
+
+All four mutations exited 1 with behavioral failures and were reverted. Full
+transcripts are retained locally under the main checkout's ignored
+`state/heartbeat-oversized/proofs/` directory. Bytecode caches are invalidated
+between mutations so equal-sized edits within one second cannot reuse a prior
+mutant's compiled module.
+
+## Discovery and fallback survey
+
+The survey inserted each newer candidate ahead of otherwise valid fresh market
+and book evidence. This follows both the collector's discovery path and its
+batch-to-single fallback path; no collector code changes are part of this fix.
+
+| Newer candidate or failure path | Behavior and finding |
+| --- | --- |
+| 301/404/429/500 response from discovery, markets, batch or fallback; invalid JSON body | Already ignored after envelope validation because the status is non-2xx. It does not hide older evidence. |
+| Base64 body on non-2xx response, or on 2xx `/series` | Already ignored. Body parsing/decoding is not attempted for non-evidence endpoints/statuses. |
+| Non-JSON 2xx `/series` body | Already ignored; discovery is not evidence. |
+| Empty `markets`/`orderbooks` listing | Already ignored. Other fresh non-empty evidence may qualify. |
+| Valid per-market fallback, including a book with no liquidity | Qualifies as book evidence. No masking failure. |
+| Oversized envelope from any endpoint/status, including the above cases | Now skipped and counted. It cannot provide evidence; only other validated envelopes can make the run succeed. |
+| Base64 2xx market/book body; invalid/duplicate/nonfinite JSON; missing or invalid market/book structure, tickers or levels | Existing strict validation still fails even with older valid evidence. Malformed batch responses can trigger collector fallback, so this remains a possible masking path. Retained under the instruction to keep other strict checks unchanged; broader body-error tolerance is a separate policy change. |
+| File disappears, cannot be read, or has bad/truncated gzip; malformed envelope JSON, duplicate fields, missing/extra/invalid fields or encoding; wrong origin, invalid/non-UTC timestamp, request-after-receipt or filename mismatch | Existing strict integrity failures remain fatal. These may be encountered before valid older evidence; skipping corrupt/untrusted input is outside this size-limit fix. |
+| Unexpected candidate filename, non-file/symlink, invalid raw directory; directory/candidate-count/deadline budget exhaustion | Existing operational guards remain fatal, including when older evidence exists. Work remains bounded; this follow-up does not relax those guards. |
+| Partial non-empty batch membership that triggers fallback | Heartbeat only checks liveness and usable book shapes; complete requested-ticker membership remains the parser's responsibility. This is not a new failure or a completeness guarantee. |
+
+A separate timing finding affects live verification: discovery's next refresh
+is scheduled from completion, not a fixed wall-clock minute. The production
+journal shows refresh messages at 15:37:38, 16:38:42 and 17:39:48 UTC on Nov 15.
+Consequently, a future `:40` heartbeat may run before discovery and correctly
+report zero skips. The collector's cadence is not changed to force the check to
+encounter discovery.
