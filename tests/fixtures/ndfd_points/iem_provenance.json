@@ -1,0 +1,5 @@
+{
+  "url": "https://mesonet.agron.iastate.edu/json/cli.py?station=KLAX&year=2026",
+  "trim": "results retains only the last original record",
+  "text_url": "https://mesonet.agron.iastate.edu/api/1/nwstext/202611150950-KLOX-CDUS46-CLILAX"
+}

@@ -1,0 +1,67 @@
+{
+  "results": [
+    {
+      "station": "KLAX",
+      "valid": "2026-11-14",
+      "state": "CA",
+      "wfo": "LOX",
+      "link": "/api/1/nwstext/202611150950-KLOX-CDUS46-CLILAX",
+      "product": "202611150950-KLOX-CDUS46-CLILAX",
+      "name": "LOS ANGELES INTL",
+      "high": 70,
+      "high_record": 90,
+      "high_record_years": [
+        2013
+      ],
+      "high_normal": 71,
+      "high_depart": -1,
+      "high_time": "124 PM",
+      "low": 57,
+      "low_record": 43,
+      "low_record_years": [
+        1985,
+        2000
+      ],
+      "low_normal": 54,
+      "low_depart": 3,
+      "low_time": "506 AM",
+      "precip": 0.13,
+      "precip_normal": 0.02,
+      "precip_month": 1.08,
+      "precip_month_normal": 0.29,
+      "precip_jan1": 8.08,
+      "precip_jan1_normal": 9.47,
+      "precip_jun1": "M",
+      "precip_jun1_normal": "M",
+      "precip_jul1": 2.59,
+      "precip_dec1": "M",
+      "precip_dec1_normal": "M",
+      "precip_record": 1.27,
+      "precip_record_years": [
+        1972
+      ],
+      "snow": "M",
+      "snowdepth": "M",
+      "snow_normal": "M",
+      "snow_month": "T",
+      "snow_jun1": "M",
+      "snow_jul1": "T",
+      "snow_dec1": "M",
+      "snow_record": "M",
+      "snow_record_years": [],
+      "snow_jul1_normal": "M",
+      "snow_jul1_depart": "M",
+      "snow_dec1_normal": "M",
+      "snow_month_normal": "M",
+      "average_sky_cover": 0.4,
+      "resultant_wind_speed": "M",
+      "resultant_wind_direction": "M",
+      "highest_wind_speed": 15,
+      "highest_wind_direction": 270,
+      "highest_gust_speed": 20,
+      "highest_gust_direction": 280,
+      "average_wind_speed": 4.6
+    }
+  ],
+  "generated_at": "2026-11-15T17:45:23Z"
+}

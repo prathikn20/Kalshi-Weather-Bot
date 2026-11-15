@@ -1,0 +1,10 @@
+{
+  "url": "https://noaa-ndfd-pds.s3.amazonaws.com/wmo/maxt/2026/11/06/YGUZ98_KWBN_202611060016",
+  "key": "wmo/maxt/2026/11/06/YGUZ98_KWBN_202611060016",
+  "source_sha256": "b46e2ab3329040f013c9281a54f85190bae7a3505ae9e9872c943a987ab67d0f",
+  "offset": 80,
+  "size": 1043517,
+  "sha256": "5d05d34e049f1f4d33c8b83c93ebcec1c9ef0b821236946d200e5fd323a0c112",
+  "station_values_sha256": "57d8b28f3a045c545d282f5a950d0ab8825801492b16dc4adda58052562645a7",
+  "value_encoding": "compact ASCII JSON sorted by station; [station,row,column,float(kelvin).hex(),native_fahrenheit]"
+}

@@ -15,7 +15,8 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
-      - run: uv sync
+      - name: Install pinned NDFD toolchain
+        run: bash scripts/setup_ndfd.sh
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run pytest
+      - run: uv run --locked --group ndfd pytest

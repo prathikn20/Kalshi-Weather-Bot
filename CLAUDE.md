@@ -32,7 +32,7 @@ deploy/           systemd units, VM setup
 
 Changes to `src/kwb/schemas.py`, `src/kwb/forecast/base.py`, or any signature below must be proposed in plan mode with the reason, and wait for approval.
 
-1. **Point-in-time reads.** Every stored record has `available_at`: the time our system first had it (fetch time), not the time the source says it was issued. All data reads outside `store.py` go through accessors shaped like `get_forecasts(station, as_of)` that return only rows with `available_at <= as_of`. No other module reads Parquet or raw files directly.
+1. **Point-in-time reads.** Every stored record has `available_at`: the time our system first had it (fetch time), not the time the source says it was issued. All data reads outside `store.py` go through accessors shaped like `get_forecasts(station, as_of)` that return only rows with `available_at <= as_of`. Exception: ops jobs (compaction, sync, heartbeat) read raw files for maintenance and monitoring; their output never feeds a model or backtest. No other module reads Parquet or raw files directly.
 2. **Forecaster.** Every model, including baselines, implements `predict(station: str, target_date: date, as_of: datetime) -> Distribution`. `Distribution` exposes `cdf(x: float) -> float`. Downstream code sees only `Distribution`.
 3. **Pricing.** `fair_values(dist, brackets) -> dict[str, float]` is pure. Fair values across a market's brackets sum to 1 within tolerance; a test enforces this.
 4. **Decisions.** `decide(fair_values, order_book, position, config) -> list[IntendedOrder]` is pure. Backtest and live trading call this same function. Only the executor differs (fill simulator vs Kalshi API).
