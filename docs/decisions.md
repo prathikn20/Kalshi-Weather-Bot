@@ -57,6 +57,8 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 
 - 2026-11-14: Settlement records validate label fields strictly (result, payouts, settlement_ts, expiration value, bounds, rules) and accept trading-quote fields (bid/ask prices and sizes, last and previous prices, volume, open interest, liquidity, notional) only as well-formed fixed-point strings without sign or range checks, because settlements neither store nor use them. Live market snapshots keep their nonnegative checks. Trigger: KXHIGHCHI-26MAY13-B60.5 serves yes_bid_size_fp "-276.00" in its historical settled record, which rejected the first full settlement acquisition; the step-1 survey found failures in quote fields only.
 
+- 2026-11-15: Kalshi collector liveness is checked every 5 minutes by a systemd timer on the VM that inspects archived envelopes, not the process: it pings a healthchecks.io check only when a 2xx /markets envelope and a 2xx order-book envelope have received_at within the last 300 s, and sends the check's fail signal with the reason otherwise. The alert comes from outside the VM, so a dead VM, a dead collector, a dead timer and a collector that runs but archives nothing all produce the same email. Supersedes plan.md's "daily staleness alert": order books cannot be re-downloaded, so a daily check could lose up to a day of them before anyone knows. The ping URL is a secret held in an EnvironmentFile outside the repo. Limit: alerting depends on healthchecks.io and email delivery, and a leaked ping URL could mask an outage.
+
 ## Open (answer during the spike)
 
 - Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).
