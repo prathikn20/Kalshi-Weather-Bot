@@ -254,3 +254,12 @@ def test_importing_ndfd_boundaries_does_not_load_the_native_decoder():
         ],
         check=True,
     )
+
+
+def test_the_decoder_links_to_the_stable_machine_library_outside_every_checkout():
+    import grib2io
+
+    library = Path(grib2io.__config__.g2c_library).resolve()
+    assert library.parent == Path.home() / ".local/share/kwb/g2c-2.3.0/lib"
+    assert library.is_file()
+    assert not grib2io.__config__.has_interpolation

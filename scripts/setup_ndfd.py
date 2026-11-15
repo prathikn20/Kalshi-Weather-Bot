@@ -115,7 +115,10 @@ def main():
         "ndfd",
         "python",
         "-c",
-        "import grib2io; grib2io.show_config()",
+        "from pathlib import Path; import grib2io; "
+        "assert Path(grib2io.__config__.g2c_library).resolve().parent == "
+        "Path.home() / '.local/share/kwb/g2c-2.3.0/lib'; "
+        "grib2io.show_config()",
     )
     print(f"NDFD setup seconds: {time.monotonic() - started:.3f}", flush=True)
 
