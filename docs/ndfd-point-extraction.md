@@ -87,6 +87,8 @@ platform byte order and float display-rounding ambiguities.
   climate-day, native-value and point-in-time selection functions.
 - `parse/ndfd_decode.py`: grib2io file boundary, metadata inspection and
   field-at-a-time extraction. A decoded field serves all seven stations.
+  Native imports occur only when decoding, keeping metadata/diagnostic imports
+  light and preventing test collection from loading the decoder.
 - `collectors/ndfd_cache.py`: bounded HTTP client, listings and integrity cache.
 - `ops/ndfd_point_check.py`: one-off diagnostic orchestration and accounting.
   `scripts/check_ndfd_points.py` is its entry point.

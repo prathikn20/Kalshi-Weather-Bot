@@ -10,10 +10,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-import grib2io
-import numpy as np
 import pytest
-from pyproj import Proj
 
 from kwb.parse.ndfd import (
     MaxTPeriod,
@@ -92,6 +89,9 @@ def test_only_operational_conus_maxt_objects_are_selected_and_every_exclusion_is
 def test_every_configured_station_is_inside_its_selected_grib_cell_and_unsupported_scanning_raises(
     stations, station_id
 ):
+    import grib2io
+    from pyproj import Proj
+
     station = next(s for s in stations if s.station == station_id)
     with grib2io.open(str(FIXTURE), save_index=False, use_index=False) as messages:
         grid = grid_spec(messages[0])
@@ -180,6 +180,9 @@ def test_forecasts_use_the_latest_eligible_issuance_covering_the_day_and_require
 
 
 def test_point_values_preserve_kelvin_and_reject_missing_or_ambiguous_native_fahrenheit(stations):
+    import grib2io
+    import numpy as np
+
     rows = list(decode_grib(FIXTURE, OBJ, stations, lag=LAG))
     with grib2io.open(str(FIXTURE), save_index=False, use_index=False) as messages:
         message = messages[0]
@@ -234,3 +237,20 @@ def test_default_install_excludes_grib2io_and_notebooks_include_the_ndfd_group()
     settings = tomllib.loads(Path("pyproject.toml").read_text())
     assert {"include-group": "ndfd"} in settings["dependency-groups"]["notebooks"]
     assert "ndfd" not in settings.get("tool", {}).get("uv", {}).get("default-groups", ["dev"])
+
+
+def test_importing_ndfd_boundaries_does_not_load_the_native_decoder():
+    subprocess.run(
+        [
+            "uv",
+            "run",
+            "--locked",
+            "--group",
+            "ndfd",
+            "python",
+            "-c",
+            "import sys; import kwb.ops.ndfd_point_check; "
+            "assert 'grib2io' not in sys.modules; assert 'numpy' not in sys.modules",
+        ],
+        check=True,
+    )

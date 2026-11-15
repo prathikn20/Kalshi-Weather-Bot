@@ -4,9 +4,6 @@ from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import grib2io
-import numpy as np
-
 from kwb.parse.ndfd import (
     GridSpec,
     MaxTPeriod,
@@ -54,11 +51,15 @@ def message_period(message) -> MaxTPeriod:
 
 
 def inspect_periods(path: Path) -> tuple[MaxTPeriod, ...]:
+    import grib2io
+
     with grib2io.open(str(path), save_index=False, use_index=False) as messages:
         return tuple(message_period(message) for message in messages)
 
 
 def extract_points(message, obj: ObjectInfo, stations: Sequence[Station], *, lag: timedelta):
+    import numpy as np
+
     validate_lag(lag)
     period, grid = message_period(message), grid_spec(message)
     if int(message.drtn) not in (2, 3):
@@ -100,6 +101,8 @@ def decode_grib(
     lag: timedelta,
     periods: Sequence[MaxTPeriod] | None = None,
 ) -> Iterator[PointForecast]:
+    import grib2io
+
     validate_lag(lag)
     with grib2io.open(str(path), save_index=False, use_index=False) as messages:
         for message in messages:
