@@ -61,6 +61,11 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 
 - 2026-11-15: The heartbeat skips envelopes larger than its 16 MiB read limit instead of failing. The hourly unfiltered /series response decompresses to about 21.5 MB; reading newest first during a discovery cycle reached it before the cycle's order books and sent a false /fail at 17:40 UTC while collection was healthy. Skipping cannot produce a false success, because success still requires fresh market and order-book envelopes.
 
+- 2026-11-15: Ops jobs (compaction, sync, heartbeat) read raw envelopes directly; the store.py accessor rule covers data consumed by models and backtests. The heartbeat imports only the standard library so a 5-minute check does not load DuckDB and pyarrow on the 1 GB e2-micro (31.8 MiB peak RSS measured).
+- 2026-11-15: NDFD point values come from the CONUS 2.5 km cell whose area contains the station's coordinates in config/nws_stations.csv, located in the GRIB's own projection. The api.weather.gov polygon centroid used in notebooks/02 is a cross-check only: NDFD is the forecast source for both training and live, so the forecast point is the settlement station itself, not a WFO's local API grid.
+- 2026-11-15: A station's NDFD MaxT forecast for climate day D is the single 12-hour MaxT period contained in D's local-standard-time day (midnight to midnight, the CLI convention); zero or several candidates raise. TWC's own window is not established, so this aligns with Kalshi labels only as far as TWC follows the CLI day.
+- 2026-11-15: NDFD GRIB objects are cached on the Mac under data/ndfd/ (gitignored) with a manifest of key, size, ETag, SHA-256 and received_at, and are not mirrored to the VM or the backup bucket. NOAA's public bucket is the raw archive, re-downloadable back to 2020-04-16, and mirroring roughly 67 GB for a four-decision backfill does not fit the free-tier VM and bucket. Limit: if NOAA removes history, the local cache is the only copy.
+
 ## Open (answer during the spike)
 
 - Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).

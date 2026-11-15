@@ -26,18 +26,26 @@ dev = [
     "pytest",
     "ruff",
 ]
+ndfd = [
+    "grib2io==2.8.2",
+    "pyproj==3.8.0",
+    "shapely==2.1.2",
+    "pyshp==2.3.1",
+]
 notebooks = [
-    "grib2io>=2.8.2",
+    { include-group = "ndfd" },
     "ipykernel>=7.4.0",
     "nbclient>=0.11.0",
     "nbformat>=5.11.1",
     "pandas>=3.1.1",
-    "pyproj>=3.8.0",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.uv]
+build-constraint-dependencies = ["scikit-build-core==1.1.2", "cython==3.3.1", "numpy==2.5.4", "cmake==3.31.6"]
 
 [tool.uv.config-settings-package]
 # The archive notebook selects a containing cell; it does not interpolate.
