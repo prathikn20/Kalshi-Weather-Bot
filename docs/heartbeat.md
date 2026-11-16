@@ -11,16 +11,34 @@ Healthchecks.io only after finding both kinds of usable evidence with
 
 This checks data arriving on disk, rather than a process merely being alive.
 It does not prove every series was collected, complete pagination, or complete
-batch membership; those are parser responsibilities. Empty listing responses and
-non-2xx responses do not count. Envelopes exceeding the 16 MiB read limit are
-skipped without supplying evidence; `skipped_oversized` is included in success
-and failure log lines, including ping/configuration errors. Other unreadable or
-malformed inspected evidence fails
-the run. The reader stops once both kinds of evidence have been established;
-it does not audit older files for corruption.
+batch membership; those are parser responsibilities. Non-2xx responses and
+irrelevant endpoints cannot provide evidence. The reader stops once both kinds
+of evidence have been established; it does not audit older files for corruption.
 
-On stale, missing, malformed or unreadable evidence, exhausted budgets, or an
-unexpected check exception, it sends `/fail` with a fixed, sanitized reason.
+Three kinds of non-evidence candidates are skipped and counted:
+
+- `skipped_oversized`: an envelope exceeds the unchanged 16 MiB read limit.
+- `skipped_invalid_body`: a 2xx market/book body is base64-encoded, cannot be
+  parsed as strict JSON, or fails its list/record checks. Empty lists fail the
+  heartbeat's non-empty-list requirement and are counted here too.
+- `skipped_unreadable`: a gzip stream cannot be opened or read completely,
+  including a missing file, permission error, invalid header, truncated stream,
+  decompression error or CRC failure. The collector writes final filenames
+  directly, so a read can race a write.
+
+A skipped candidate supplies no evidence. A window containing only unusable
+responses still sends `/fail` with `missing_fresh_market_or_orderbook_evidence`.
+Complete but malformed envelope JSON/keys/types, invalid timestamps or filename
+agreement, unexpected origin, non-file entries and exhausted scan budgets remain
+fatal structural/operational errors even when valid older responses exist.
+Only gzip stream I/O and relevant response-body validation use skippable error
+types; the check does not catch all archive errors and continue.
+
+All three counts appear in success and failure logs, including configuration
+and ping failures. Only fixed diagnostics and counts are logged; no ping secrets,
+raw response text or arbitrary exception details are forwarded. A structural
+fault, exhausted budget, or unexpected check exception sends a sanitized `/fail`
+reason or leaves the external check to detect silence.
 Failure to send a ping is logged and returns nonzero. There are no retries or
 redirects and no success fallback after an error. The transport requires HTTP 200
 and the body `OK`; HTTP 200 containing `not found` or `rate limited` is an error.
@@ -70,8 +88,9 @@ The 300-second freshness window equals compaction's five-minute grace. Compactio
 groups by filename stamp, and the collector stamps each file with its envelope's
 `received_at`; the reader verifies that equality. When an hour becomes eligible,
 every timestamp in that hour strictly precedes its end, so every envelope in it
-is older than 300 seconds. Fresh evidence remains loose. A concurrent filesystem
-error fails conservatively rather than consulting archives or retrying.
+is older than 300 seconds. Fresh evidence remains loose. A concurrent file-read failure is skipped;
+without other usable evidence the run fails, rather than consulting archives or
+retrying.
 
 ## Install on the VM
 
@@ -133,7 +152,9 @@ again on restored code. Tests reuse the committed real market, batch-book and
 single-book envelopes in `tests/fixtures/kalshi/`.
 
 Every mutation below exited **1** with a behavioral test failure, then was reverted.
-The `test_` names are in `tests/test_heartbeat.py`.
+These are the historical PR #20 proofs; the gzip failure policy is superseded by
+the skip policy and new proofs below. The `test_` names are in
+`tests/test_heartbeat.py`.
 
 | Property | Test and what it checks | Broken behavior and observed failure |
 | --- | --- | --- |
@@ -180,7 +201,8 @@ market or book evidence. A run succeeds only if other fresh, fully validated
 market and book envelopes exist. A window containing only oversized book
 candidates still reports `missing_fresh_market_or_orderbook_evidence`. Per-run
 counts survive later check or ping failures without retaining payloads, and no
-paths or ping secrets are added to logs. All other strict checks stay unchanged.
+paths or ping secrets are added to logs. The subsequent body/read policy below
+extends these skips while retaining structural validation.
 
 The two tests reuse the real trimmed `/series` response at
 `tests/fixtures/kalshi/settlements/discovery.json.gz` (its provenance is recorded
@@ -211,11 +233,12 @@ batch-to-single fallback path; no collector code changes are part of this fix.
 | 301/404/429/500 response from discovery, markets, batch or fallback; invalid JSON body | Already ignored after envelope validation because the status is non-2xx. It does not hide older evidence. |
 | Base64 body on non-2xx response, or on 2xx `/series` | Already ignored. Body parsing/decoding is not attempted for non-evidence endpoints/statuses. |
 | Non-JSON 2xx `/series` body | Already ignored; discovery is not evidence. |
-| Empty `markets`/`orderbooks` listing | Already ignored. Other fresh non-empty evidence may qualify. |
+| Empty `markets`/`orderbooks` listing | Skipped and counted as `skipped_invalid_body` because the non-empty-list check fails. Other fresh non-empty evidence may qualify. |
 | Valid per-market fallback, including a book with no liquidity | Qualifies as book evidence. No masking failure. |
 | Oversized envelope from any endpoint/status, including the above cases | Now skipped and counted. It cannot provide evidence; only other validated envelopes can make the run succeed. |
-| Base64 2xx market/book body; invalid/duplicate/nonfinite JSON; missing or invalid market/book structure, tickers or levels | Existing strict validation still fails even with older valid evidence. Malformed batch responses can trigger collector fallback, so this remains a possible masking path. Retained under the instruction to keep other strict checks unchanged; broader body-error tolerance is a separate policy change. |
-| File disappears, cannot be read, or has bad/truncated gzip; malformed envelope JSON, duplicate fields, missing/extra/invalid fields or encoding; wrong origin, invalid/non-UTC timestamp, request-after-receipt or filename mismatch | Existing strict integrity failures remain fatal. These may be encountered before valid older evidence; skipping corrupt/untrusted input is outside this size-limit fix. |
+| Base64 2xx market/book body; invalid/duplicate/nonfinite or excessively nested JSON; missing or invalid market/book structure, tickers or levels | Skipped and counted as `skipped_invalid_body`; only valid older/fallback responses can qualify. An invalid-only window still fails for missing fresh evidence. |
+| File disappears, cannot be read, or has bad/truncated gzip | Skipped and counted as `skipped_unreadable`; an unreadable-only window still fails for missing fresh evidence. |
+| Complete gzip containing malformed envelope JSON, duplicate fields, missing/extra/invalid fields or encoding; wrong origin, invalid/non-UTC timestamp, request-after-receipt or filename mismatch | Structural archive faults still fail even when older valid evidence exists. The skippable read handler ends before envelope parsing and validation. |
 | Unexpected candidate filename, non-file/symlink, invalid raw directory; directory/candidate-count/deadline budget exhaustion | Existing operational guards remain fatal, including when older evidence exists. Work remains bounded; this follow-up does not relax those guards. |
 | Partial non-empty batch membership that triggers fallback | Heartbeat only checks liveness and usable book shapes; complete requested-ticker membership remains the parser's responsibility. This is not a new failure or a completeness guarantee. |
 
@@ -225,3 +248,45 @@ journal shows refresh messages at 15:37:38, 16:38:42 and 17:39:48 UTC on Nov 15.
 Consequently, a future `:40` heartbeat may run before discovery and correctly
 report zero skips. The collector's cadence is not changed to force the check to
 encounter discovery.
+
+
+## Invalid response and incomplete gzip follow-up (2026-11-15)
+
+A malformed batch can be followed by healthy per-market fallback books. Its
+invalid body is rejected as evidence without preventing the check from reaching
+the valid fallback and market snapshots. Likewise, an incomplete gzip file can
+be a live write in progress; it supplies no evidence but need not invalidate
+older complete responses inside the existing freshness window. Persistent
+unusable input still alerts when no valid pair is available.
+
+The implementation distinguishes `InvalidBody` and `UnreadableEnvelope` from
+structural `CheckError` failures. The gzip-only exception boundary wraps opening,
+reading and closing the stream; complete envelope parsing and origin/timestamp
+validation stay outside it. All skip paths still check the existing deadline.
+One per-run stats object supplies all three fields to every outcome log.
+
+The original gzip-only failure test initially failed because it contained valid
+older evidence. Its failure assertion is retained for a window containing only
+unreadable gzip. New tests cover the complementary healthy-data case across bad
+headers, truncation, CRC failure and a permission error containing a fake secret.
+The structural error cases and their failure assertions remain in place.
+
+| Test | What it checks | Deliberate break and observed failure |
+| --- | --- | --- |
+| `test_invalid_batch_bodies_do_not_mask_valid_fallback_books_and_markets` | A bad batch between markets and valid fallback books is skipped and counted across 13 body failure shapes. | Restore fatal body handling: **13 failed in 0.41s**, exit 1; broken code returned 1 where success was required. |
+| `test_a_window_of_only_invalid_response_bodies_fails_with_missing_fresh_evidence` | Invalid bodies never become evidence; the check sends the missing-evidence reason and both skips are logged. | Restore fatal handling: **13 failed in 0.69s**, exit 1, wrong failure reason. Accept bodies without validating: **13 failed in 0.22s**, exit 1, false success rejected. |
+| `test_unreadable_gzip_does_not_mask_older_valid_evidence` | Bad header, truncation, CRC and permission failures are skipped while good older responses establish health. | Restore fatal gzip handling: **4 failed in 0.75s**, exit 1; broken code returned 1 where success was required. |
+| `test_a_window_of_only_unreadable_gzip_fails_with_missing_fresh_evidence` | Incomplete input alone cannot establish health and logs two unreadable skips. | Restore fatal handling: **1 failed in 0.09s**, exit 1, wrong reason. Return success without evidence: **1 failed in 0.10s**, exit 1. |
+| `test_structural_archive_faults_still_fail_when_older_valid_evidence_exists` | Own-archive keys, timestamps, origin, entry type, encoding and complete-envelope JSON/type faults remain fatal. | Swallow all read validation errors: **6 failed, 2 passed in 0.21s**. Swallow origin errors: **1 failed in 0.09s**. Ignore non-files: **1 failed in 0.10s**. Each mutant exited 1. |
+| `test_all_skip_counts_survive_a_later_ping_failure` | Body and unreadable counters remain visible when the later HTTP ping fails, without leaking a secret-bearing exception. | Remove the invalid-body increment: **1 failed in 0.11s**. Remove the unreadable increment: **1 failed in 0.11s**. Each mutant exited 1. |
+
+All 11 mutations were reverted, invalidating bytecode caches between edits.
+Full transcripts are retained under the main checkout's ignored
+`state/heartbeat-invalid/proofs/` directory. The full repository tests and Ruff
+checks run on restored code before delivery. The existing import-isolation,
+freshness, compaction, cost-budget and secret tests remain active.
+
+The owner confirmed the Healthchecks.io dashboard was Up at 18:55 UTC after the
+real 18:40:56 success with `skipped_oversized=1`. No additional status credential
+or badge is used. The next deployment is verified from the natural `:40` timer
+journal line, including all three skip counts; the collector is never restarted.
