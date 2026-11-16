@@ -12,6 +12,7 @@ import math
 import os
 import re
 import time
+import zlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -40,11 +41,28 @@ class CheckError(ValueError):
     """A fixed diagnostic code, safe to send and log without exception details."""
 
 
+class InvalidBody(CheckError):
+    """A response cannot supply evidence, but other fresh responses may."""
+
+
+class UnreadableEnvelope(CheckError):
+    """A gzip read failed, possibly because collection is still writing it."""
+
+
 @dataclass
 class CheckStats:
     """Per-run counts survive inspection failures without keeping raw payloads."""
 
     skipped_oversized: int = 0
+    skipped_invalid_body: int = 0
+    skipped_unreadable: int = 0
+
+    def log_fields(self) -> str:
+        return (
+            f"skipped_oversized={self.skipped_oversized} "
+            f"skipped_invalid_body={self.skipped_invalid_body} "
+            f"skipped_unreadable={self.skipped_unreadable}"
+        )
 
 
 def filename(stamp: datetime) -> str:
@@ -118,8 +136,12 @@ def newest_candidates(
 
 
 def read_envelope(path: Path) -> dict | None:
-    with gzip.open(path, "rb") as stream:
-        payload = stream.read(MAX_ENVELOPE_BYTES + 1)
+    try:
+        with gzip.open(path, "rb") as stream:
+            payload = stream.read(MAX_ENVELOPE_BYTES + 1)
+    except (OSError, EOFError, zlib.error):
+        # Only stream I/O is skippable. Parsing the envelope itself stays strict.
+        raise UnreadableEnvelope("unreadable_gzip") from None
     if len(payload) > MAX_ENVELOPE_BYTES:
         # An unread envelope cannot supply evidence. Keep looking within the
         # existing window instead of letting large discovery responses mask it.
@@ -181,28 +203,31 @@ def qualifying_endpoint(envelope: dict) -> str | None:
     if not (markets or batch or single) or not 200 <= envelope["http_status"] < 300:
         return None
     if envelope.get("body_encoding") is not None:
-        raise CheckError("unreadable_response_body")
-    body = strict_json(envelope["body"])
+        raise InvalidBody("unreadable_response_body")
+    try:
+        body = strict_json(envelope["body"])
+    except (ValueError, RecursionError):
+        raise InvalidBody("invalid_response_json") from None
     if not isinstance(body, dict):
-        raise CheckError("malformed_response_body")
+        raise InvalidBody("malformed_response_body")
     if markets:
         records = body.get("markets")
         if not isinstance(records, list):
-            raise CheckError("invalid_markets_list")
+            raise InvalidBody("invalid_markets_list")
         if not records:
-            return None
+            raise InvalidBody("empty_response_list")
         if any(
             not isinstance(r, dict) or not isinstance(r.get("ticker"), str) or not r["ticker"]
             for r in records
         ):
-            raise CheckError("malformed_market_record")
+            raise InvalidBody("malformed_market_record")
         return "markets"
     if batch:
         records = body.get("orderbooks")
         if not isinstance(records, list):
-            raise CheckError("invalid_orderbooks_list")
+            raise InvalidBody("invalid_orderbooks_list")
         if not records:
-            return None
+            raise InvalidBody("empty_response_list")
         if any(
             not isinstance(r, dict)
             or not isinstance(r.get("ticker"), str)
@@ -210,9 +235,9 @@ def qualifying_endpoint(envelope: dict) -> str | None:
             or not valid_book(r.get("orderbook_fp"))
             for r in records
         ):
-            raise CheckError("malformed_orderbook_record")
+            raise InvalidBody("malformed_orderbook_record")
     elif not valid_book(body.get("orderbook_fp")):
-        raise CheckError("malformed_orderbook")
+        raise InvalidBody("malformed_orderbook")
     return "orderbooks"
 
 
@@ -232,7 +257,12 @@ def inspect_collection(
     found = set()
     for path in candidates:
         check_budget(deadline)
-        envelope = read_envelope(path)
+        try:
+            envelope = read_envelope(path)
+        except UnreadableEnvelope:
+            stats.skipped_unreadable += 1
+            check_budget(deadline)
+            continue
         if envelope is None:
             stats.skipped_oversized += 1
             check_budget(deadline)
@@ -240,7 +270,12 @@ def inspect_collection(
         age = (as_of - timestamp(envelope["received_at"])).total_seconds()
         if not 0 <= age <= window:
             raise CheckError("envelope_outside_freshness_window")
-        endpoint = qualifying_endpoint(envelope)
+        try:
+            endpoint = qualifying_endpoint(envelope)
+        except InvalidBody:
+            stats.skipped_invalid_body += 1
+            check_budget(deadline)
+            continue
         if endpoint:
             found.add(endpoint)
         check_budget(deadline)
@@ -278,8 +313,8 @@ def run_once(raw_root: Path, as_of: datetime, window: float = WINDOW_SECONDS) ->
             raise CheckError("invalid_ping_configuration")
     except Exception:
         LOGGER.error(
-            "Heartbeat configuration unavailable or invalid skipped_oversized=%d",
-            stats.skipped_oversized,
+            "Heartbeat configuration unavailable or invalid %s",
+            stats.log_fields(),
         )
         return 1
     reason = None
@@ -321,14 +356,12 @@ def run_once(raw_root: Path, as_of: datetime, window: float = WINDOW_SECONDS) ->
     try:
         send_ping(url, reason)
     except Exception:
-        LOGGER.error("Heartbeat ping failed skipped_oversized=%d", stats.skipped_oversized)
+        LOGGER.error("Heartbeat ping failed %s", stats.log_fields())
         return 1
     if reason is not None:
-        LOGGER.error(
-            "Heartbeat reported failure: %s skipped_oversized=%d", reason, stats.skipped_oversized
-        )
+        LOGGER.error("Heartbeat reported failure: %s %s", reason, stats.log_fields())
         return 1
-    LOGGER.info("Heartbeat reported success skipped_oversized=%d", stats.skipped_oversized)
+    LOGGER.info("Heartbeat reported success %s", stats.log_fields())
     return 0
 
 

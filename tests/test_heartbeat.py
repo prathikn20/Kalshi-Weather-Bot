@@ -180,6 +180,11 @@ def test_every_unhealthy_or_exceptional_check_sends_failure_or_nothing_and_never
     elif case == "missing":
         shutil.rmtree(root)
     elif case in {"gzip", "json", "envelope", "duplicate", "nonfinite"}:
+        if case == "gzip":
+            # Under the new policy, unreadable input is unhealthy only when no
+            # usable evidence remains. Healthy-data masking has its own test.
+            for original in root.rglob("*.json.gz"):
+                original.unlink()
         path = root / NOW.date().isoformat() / hb.filename(NOW - timedelta(seconds=5))
         payload = {
             "json": b"{",
@@ -493,3 +498,179 @@ def test_oversized_only_order_book_candidates_still_fail_with_missing_fresh_evid
     )
     assert SECRET not in caplog.text
     assert str(tmp_path) not in caplog.text
+
+
+INVALID_BATCH_BODIES = {
+    "malformed_json": {"body": "{"},
+    "nesting_limit": {"body": "[" * 2000 + "0" + "]" * 2000},
+    "base64": {"body": "/w==", "body_encoding": "base64"},
+    "non_object": {"body": "[]"},
+    "missing_list": {"body": "{}"},
+    "wrong_list": {"body": '{"orderbooks": {}}'},
+    "empty_list": {"body": '{"orderbooks": []}'},
+    "bad_record": {"body": '{"orderbooks": [null]}'},
+    "bad_ticker": {"body": '{"orderbooks": [{"ticker": 42, "orderbook_fp": {}}]}'},
+    "bad_book": {"body": '{"orderbooks": [{"ticker": "X", "orderbook_fp": {}}]}'},
+    "bad_level": {
+        "body": json.dumps(
+            {
+                "orderbooks": [
+                    {
+                        "ticker": "X",
+                        "orderbook_fp": {"yes_dollars": [["0.5", "bad"]], "no_dollars": []},
+                    }
+                ]
+            }
+        )
+    },
+    "duplicate_json": {"body": '{"orderbooks": [], "orderbooks": []}'},
+    "nonfinite_json": {"body": '{"orderbooks": NaN}'},
+}
+
+
+@pytest.mark.parametrize("case", INVALID_BATCH_BODIES)
+def test_invalid_batch_bodies_do_not_mask_valid_fallback_books_and_markets(healthy, caplog, case):
+    root, calls = healthy
+    caplog.set_level(logging.INFO)
+    # Arrange the real collector flow: markets, failed batch, then fallback.
+    put(root, MARKET, NOW - timedelta(seconds=30))
+    put(root, BATCH, NOW - timedelta(seconds=20), **INVALID_BATCH_BODIES[case])
+    put(root, SINGLE, NOW - timedelta(seconds=10))
+    assert hb.run_once(root, NOW) == 0
+    assert calls == [(SECRET, None)]
+    assert (
+        "Heartbeat reported success skipped_oversized=0 "
+        "skipped_invalid_body=1 skipped_unreadable=0" in caplog.text
+    )
+    assert SECRET not in caplog.text
+    assert str(root) not in caplog.text
+
+
+@pytest.mark.parametrize("case", INVALID_BATCH_BODIES)
+def test_a_window_of_only_invalid_response_bodies_fails_with_missing_fresh_evidence(
+    healthy, caplog, case
+):
+    root, calls = healthy
+    caplog.set_level(logging.INFO)
+    put(root, MARKET, NOW - timedelta(seconds=20), **INVALID_BATCH_BODIES[case])
+    put(root, BATCH, NOW - timedelta(seconds=10), **INVALID_BATCH_BODIES[case])
+    assert hb.run_once(root, NOW) == 1
+    assert calls == [(SECRET, "missing_fresh_market_or_orderbook_evidence")]
+    assert (
+        "Heartbeat reported failure: missing_fresh_market_or_orderbook_evidence "
+        "skipped_oversized=0 skipped_invalid_body=2 skipped_unreadable=0" in caplog.text
+    )
+
+
+@pytest.mark.parametrize("damage", ["not_gzip", "truncated", "crc", "permission"])
+def test_unreadable_gzip_does_not_mask_older_valid_evidence(healthy, monkeypatch, caplog, damage):
+    root, calls = healthy
+    caplog.set_level(logging.INFO)
+    bad = put(root, BATCH, NOW - timedelta(seconds=5))
+    data = bad.read_bytes()
+    if damage == "not_gzip":
+        bad.write_bytes(b"broken gzip")
+    elif damage == "truncated":
+        bad.write_bytes(data[:-4])
+    elif damage == "crc":
+        corrupt = bytearray(data)
+        corrupt[-8] ^= 1
+        bad.write_bytes(corrupt)
+    else:
+        real_open = hb.gzip.open
+
+        def open_or_fail(path, *args, **kwargs):
+            if path == bad:
+                raise PermissionError(SECRET)
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr(hb.gzip, "open", open_or_fail)
+    assert hb.run_once(root, NOW) == 0
+    assert calls == [(SECRET, None)]
+    assert (
+        "Heartbeat reported success skipped_oversized=0 "
+        "skipped_invalid_body=0 skipped_unreadable=1" in caplog.text
+    )
+    assert SECRET not in caplog.text
+    assert str(root) not in caplog.text
+
+
+def test_a_window_of_only_unreadable_gzip_fails_with_missing_fresh_evidence(healthy, caplog):
+    root, calls = healthy
+    caplog.set_level(logging.INFO)
+    for path in root.rglob("*.json.gz"):
+        path.write_bytes(path.read_bytes()[:-4])
+    assert hb.run_once(root, NOW) == 1
+    assert calls == [(SECRET, "missing_fresh_market_or_orderbook_evidence")]
+    assert (
+        "Heartbeat reported failure: missing_fresh_market_or_orderbook_evidence "
+        "skipped_oversized=0 skipped_invalid_body=0 skipped_unreadable=2" in caplog.text
+    )
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "missing_key",
+        "extra_key",
+        "timestamp",
+        "origin",
+        "non_file",
+        "envelope_json",
+        "encoding",
+        "body_type",
+    ],
+)
+def test_structural_archive_faults_still_fail_when_older_valid_evidence_exists(
+    healthy, caplog, fault
+):
+    root, calls = healthy
+    caplog.set_level(logging.INFO)
+    newest = put(root, SINGLE, NOW - timedelta(seconds=1))
+    envelope = json.loads(gzip.decompress(newest.read_bytes()))
+    expected_reason = "malformed_envelope"
+    if fault == "missing_key":
+        del envelope["request_params"]
+    elif fault == "extra_key":
+        envelope["unexpected"] = "field"
+    elif fault == "timestamp":
+        envelope["received_at"] = (NOW - timedelta(seconds=2)).isoformat()
+        expected_reason = "inconsistent_envelope_timestamp"
+    elif fault == "origin":
+        envelope["request_url"] = "https://example.invalid/trade-api/v2/markets/X/orderbook"
+        expected_reason = "unexpected_envelope_origin"
+    elif fault == "non_file":
+        newest.unlink()
+        newest.mkdir()
+        expected_reason = "unexpected_envelope_type"
+    elif fault == "encoding":
+        envelope["body_encoding"] = "unknown"
+    elif fault == "body_type":
+        envelope["body"] = {}
+    if fault == "envelope_json":
+        newest.write_bytes(gzip.compress(b"{"))
+        expected_reason = "unreadable_or_malformed_evidence"
+    elif fault != "non_file":
+        newest.write_bytes(gzip.compress(json.dumps(envelope).encode()))
+    assert hb.run_once(root, NOW) == 1
+    assert calls == [(SECRET, expected_reason)]
+    assert "skipped_oversized=0 skipped_invalid_body=0 skipped_unreadable=0" in caplog.text
+
+
+def test_all_skip_counts_survive_a_later_ping_failure(healthy, monkeypatch, caplog):
+    root, calls = healthy
+    caplog.set_level(logging.INFO)
+    put(root, BATCH, NOW - timedelta(seconds=5), body="{")
+    bad = put(root, BATCH, NOW - timedelta(seconds=6))
+    bad.write_bytes(bad.read_bytes()[:-4])
+
+    def fail(*args):
+        raise RuntimeError(SECRET)
+
+    monkeypatch.setattr(hb, "send_ping", fail)
+    assert hb.run_once(root, NOW) == 1
+    assert (
+        "Heartbeat ping failed skipped_oversized=0 "
+        "skipped_invalid_body=1 skipped_unreadable=1" in caplog.text
+    )
+    assert SECRET not in caplog.text
