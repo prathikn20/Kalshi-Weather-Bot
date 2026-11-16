@@ -243,12 +243,14 @@ def render(output):
     text.append(
         f"Seed: {oracle['seed']}; uniform moments: {oracle['uniform_moments']}; "
         f"distinct total moments including all gap endpoints: {len(oracle['moments'])}. "
-        f"Four worker processes. Counts: `{json.dumps(oracle['counts'], sort_keys=True)}`. "
+        f"{pilot.get('comparison_workers', pilot['workers'])} worker processes. "
+        f"Counts: `{json.dumps(oracle['counts'], sort_keys=True)}`. "
         "Mismatches and leakage violations: **0**.\n"
     )
     text.append(
         f"The pilot selected {pilot['uniform_moments']} uniform moments using "
-        f"{pilot['mandatory_moments']} mandatory moments, measured parallel throughput, "
+        f"{pilot['mandatory_moments']} mandatory moments, "
+        "measured call costs and raw ticker counts, "
         f"a 15% budget margin and the approved 100-moment floor. Estimated comparison wall "
         f"time: {pilot['estimated_seconds']:.1f} s; actual: {oracle['wall_seconds']:.1f} s.\n"
     )
@@ -306,7 +308,8 @@ def render(output):
         table(["Property", "Test", "Checks", "Deliberate failure and restoration"], proofrows)
     )
     text.append(
-        "Additional deliberate failures prove duplicate conflicts and the audit-only scope "
+        "Additional deliberate failures prove duplicate conflicts, the sampling floor "
+        "and the audit-only scope "
         "guard. The proof script restores source bytes in finally; tests use temporary stores. "
         "Complete transcripts: `proofs/`. Existing leakage tests and the full suite also pass; "
         "see `full-tests.log`, `lint.log`, and `format.log`.\n"
@@ -328,7 +331,8 @@ def render(output):
     text.append("## Out-of-scope findings\n")
     text.append(
         "Accessor latency matters for the Phase 4 backtest; no store optimization was made. "
-        "Pilot per-call measurements include concurrent normal accessor use:\n"
+        "Pilot per-call measurements use four workers; "
+        "the full comparison uses the planned worker count:\n"
     )
     text.append(
         table(

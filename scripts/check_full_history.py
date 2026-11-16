@@ -1,6 +1,7 @@
 """Run the full-history audit on the Mac; all artifacts go under ignored state/."""
 
 import argparse
+import bisect
 import hashlib
 import itertools
 import json
@@ -317,6 +318,62 @@ def choose_count(seconds_per_moment, mandatory_count, *, budget_seconds=7200):
     return max(100, min(300, affordable))
 
 
+def choose_call_budget(coverage, first_times, latency, workers, *, budget_seconds=7200):
+    """Budget actual sampled ticker universes, avoiding a tiny pilot's idle tail.
+
+    First market/book receipt times give an upper bound on book calls. Charge
+    p95 for measured getters, median market latency for each of the three other
+    accessor calls per series, and reserve 15% for raw reconstruction/scheduling.
+    """
+    starts = sorted(first_times)
+
+    def estimate(count):
+        moments = audit_moments(coverage, count)
+        books = sum(bisect.bisect_right(starts, oracle.stamp(at)) for at in moments)
+        markets = len(moments) * len(coverage["series"])
+        work = (
+            books * latency["get_orderbook"]["p95_seconds"]
+            + markets * latency["get_market_snapshots"]["p95_seconds"]
+            + markets * 3 * latency["get_market_snapshots"]["p50_seconds"]
+        )
+        return {
+            "uniform_moments": count,
+            "total_moments": len(moments),
+            "upper_bound_book_calls": books,
+            "market_calls": markets,
+            "estimated_seconds": work / workers / 0.85,
+        }
+
+    selected = estimate(100)
+    for count in range(101, 301):
+        candidate = estimate(count)
+        if candidate["estimated_seconds"] > budget_seconds:
+            break
+        selected = candidate
+    return {
+        **selected,
+        "comparison_workers": workers,
+        "budget_seconds": budget_seconds,
+        "floor_exceeds_budget": selected["estimated_seconds"] > budget_seconds,
+        "reserve_fraction": 0.15,
+    }
+
+
+def budget_from_raw(database, coverage, pilot, workers):
+    db = oracle.connect(database, readonly=True)
+    first = {}
+    for series in coverage["series"]:
+        for kind in ("markets", "books"):
+            rows = db.execute(
+                "SELECT ticker,min(at) FROM observations WHERE kind=? AND series=? GROUP BY ticker",
+                (kind, series),
+            )
+            for ticker, at in rows:
+                first[ticker] = min(first.get(ticker, at), at)
+    db.close()
+    return choose_call_budget(coverage, list(first.values()), pilot["latency"], workers)
+
+
 def settlement_boundaries(root, baseline, configured, output):
     before, after = Store(baseline), Store(root / "data/kalshi")
     times = {
@@ -350,6 +407,7 @@ def main():
             "coverage",
             "reconcile",
             "pilot",
+            "budget",
             "compare",
             "rerun",
             "settlements",
@@ -383,7 +441,15 @@ def main():
         settlement_boundaries(args.root, baseline, configured, output)
     else:
         coverage = json.loads(coverage_path.read_text())
-        if args.action == "pilot":
+        if args.action == "budget":
+            pilot = json.loads((output / "pilot.json").read_text())
+            pilot["initial_tail_estimated_seconds"] = pilot["estimated_seconds"]
+            plan = budget_from_raw(database, coverage, pilot, args.workers)
+            pilot.update(plan)
+            save(output / "pilot.json", pilot)
+            save(output / "budget.json", plan)
+            print(oracle.encode(plan), flush=True)
+        elif args.action == "pilot":
             first, last = (oracle.timestamp(coverage[key]) for key in ("first", "last"))
             pilot = [first + (last - first) * fraction for fraction in (0.1, 0.5, 0.75, 0.99)]
             tasks = [(str(args.root), str(database), configured, at, str(baseline)) for at in pilot]
@@ -401,6 +467,8 @@ def main():
             save(output / "pilot.json", result)
         else:
             pilot = json.loads((output / "pilot.json").read_text())
+            if args.workers != pilot.get("comparison_workers", pilot["workers"]):
+                raise ValueError("Comparison workers must match the measured budget plan")
             count = pilot["uniform_moments"]
             moments = audit_moments(coverage, count)
             tasks = [

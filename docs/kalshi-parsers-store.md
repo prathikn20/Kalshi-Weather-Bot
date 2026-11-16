@@ -398,7 +398,8 @@ uv run --locked python -m kwb.parse.kalshi \
   --report /Users/prathik/code/Kalshi-Weather-Bot/state/full-history-parse-2026-11-16/parse-first.json
 uv run --locked python -m scripts.check_full_history reconcile
 uv run --locked python -m scripts.check_full_history pilot
-uv run --locked python -m scripts.check_full_history compare
+uv run --locked python -m scripts.check_full_history budget --workers 6
+uv run --locked python -m scripts.check_full_history compare --workers 6
 uv run --locked python -m scripts.check_full_history settlements
 ```
 
@@ -421,11 +422,14 @@ moments and all original settlement receipt boundaries.
 
 Sampling uses seed `20261116` uniformly over integer microseconds between first and
 last raw envelopes. A four-moment pilot measures per-call p50/p95/max latency and
-parallel throughput before choosing between 100 and 300 uniform moments for about
-two hours of comparison. Every gap endpoint and the first/last envelope are added
+per-call costs before choosing between 100 and 300 uniform moments for about
+two hours of comparison. The budget uses raw first-seen ticker counts at the exact
+proposed moments, p95 measured getters, a median market-latency allowance for the
+three other accessor calls per series, and a 15% reserve. This avoids treating the
+idle tail of four unequal pilot tasks as sustained throughput. Every gap endpoint and the first/last envelope are added
 regardless of that budget. If the mandatory endpoints and 100-moment floor exceed
 the target, the pilot reports that estimate rather than reducing coverage silently.
-Four worker processes issue normal public accessor calls; the store is not optimized
+The chosen worker processes issue normal public accessor calls; the store is not optimized
 or bypassed. Accessor latency is a separate Phase 4 backtest planning finding.
 
 The ledger contains one row per UTC minute and configured series (`minutes.csv`),

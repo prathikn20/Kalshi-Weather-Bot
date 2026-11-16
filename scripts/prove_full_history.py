@@ -63,6 +63,13 @@ CASES = [
         "if False and seen[identity] != digest:",
         "test_identical_raw_members_are_counted_once_and_conflicting_copies_raise",
     ),
+    (
+        "oracle-budget",
+        "scripts/check_full_history.py",
+        "selected = estimate(100)",
+        "selected = estimate(1)",
+        "test_the_call_budget_uses_actual_ticker_visibility_and_preserves_the_sampling_floor",
+    ),
 ]
 
 

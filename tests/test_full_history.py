@@ -72,6 +72,15 @@ def test_the_coverage_ledger_includes_every_minute_gap_and_hour_source(audit_dat
         result["series"]["KXHIGHLAX"]["markets"]["last"]
         == (FIRST + timedelta(minutes=4)).isoformat()
     )
+    loose = list((root / "raw/kalshi/2026-11-10").glob("*.json.gz"))
+    packed = archive(root / "raw/kalshi/2026-11-10/2026-11-10T22.tar.zst", loose)
+    inventory = [str(packed.relative_to(root))]
+    oracle.coverage(database, SERIES, root / "raw/kalshi", inventory, output)
+    assert ",both,1,3,False" in (output / "hours.csv").read_text()
+    for path in loose:
+        path.unlink()
+    oracle.coverage(database, SERIES, root / "raw/kalshi", inventory, output)
+    assert ",bucket,1,0,False" in (output / "hours.csv").read_text()
 
 
 def test_every_successful_configured_envelope_reconciles_to_rows_or_an_explained_empty(audit_data):
@@ -321,3 +330,55 @@ def test_reconciliation_rejects_a_manifest_change_during_its_inventory(audit_dat
     store._audit_rows = changed_manifest
     with pytest.raises(AssertionError, match="manifest changed during audit"):
         audit.reconciliation(store, database, output)
+
+
+def test_the_call_budget_uses_actual_ticker_visibility_and_preserves_the_sampling_floor():
+    coverage = {
+        "first": FIRST.isoformat(),
+        "last": (FIRST + timedelta(days=10)).isoformat(),
+        "gaps": [{"start": FIRST.isoformat(), "end": (FIRST + timedelta(hours=2)).isoformat()}],
+        "series": {"KXHIGHLAX": {}},
+    }
+    latency = {
+        "get_orderbook": {"p95_seconds": 0.2},
+        "get_market_snapshots": {"p95_seconds": 0.1, "p50_seconds": 0.05},
+    }
+    starts = [oracle.stamp(FIRST), oracle.stamp(FIRST + timedelta(days=20))]
+    floor = audit.choose_call_budget(coverage, starts, latency, 6, budget_seconds=1)
+    assert floor["uniform_moments"] == 100
+    assert floor["total_moments"] == 103
+    assert floor["upper_bound_book_calls"] == 103
+    assert floor["floor_exceeds_budget"]
+    ample = audit.choose_call_budget(coverage, starts, latency, 6, budget_seconds=1000)
+    assert ample["uniform_moments"] == 300
+    assert not ample["floor_exceeds_budget"]
+    # Removing a never-visible ticker must not change the budget or counted calls.
+    assert ample == audit.choose_call_budget(coverage, starts[:1], latency, 6, budget_seconds=1000)
+
+
+def test_every_missing_archive_hour_is_retained_as_an_exact_contiguous_range(tmp_path):
+    raw = tmp_path / "raw/kalshi"
+    first = write_envelope(raw / "2026-11-10", envelope(MARKETS), at=FIRST)
+    later = write_envelope(raw / "2026-11-11", envelope(MARKETS), at=FIRST + timedelta(hours=3))
+    archives = [
+        archive(raw / "2026-11-10/2026-11-10T22.tar.zst", [first]),
+        archive(raw / "2026-11-11/2026-11-11T01.tar.zst", [later]),
+    ]
+    database = tmp_path / "oracle.sqlite"
+    oracle.build_index(raw, database, SERIES)
+    output = tmp_path / "output"
+    output.mkdir()
+    result = oracle.coverage(
+        database, SERIES, raw, [str(path.relative_to(tmp_path)) for path in archives], output
+    )
+    assert result["missing_bucket_ranges"] == [
+        {
+            "start": "2026-11-10T23:00:00+00:00",
+            "end_exclusive": "2026-11-11T01:00:00+00:00",
+            "hours": 2,
+            "evidence": "",
+        }
+    ]
+    ledger = (output / "hours.csv").read_text()
+    assert "2026-11-10T23,missing,0,0,True" in ledger
+    assert "2026-11-11T00,missing,0,0,True" in ledger
