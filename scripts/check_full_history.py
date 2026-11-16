@@ -5,6 +5,7 @@ import hashlib
 import itertools
 import json
 import math
+import pickle
 import random
 import sqlite3
 import time
@@ -78,6 +79,9 @@ def require_visible(rows, as_of):
 
 
 def reconciliation(store, database, output):
+    manifest_bytes = (store.root / "manifest.json").read_bytes()
+    (output / "manifest-first.bytes").write_bytes(manifest_bytes)
+    save(output / "manifest-first.json", json.loads(manifest_bytes))
     db = oracle.connect(database, readonly=True)
     seen_path = output / "reconciled.sqlite"
     seen_path.unlink(missing_ok=True)
@@ -87,6 +91,9 @@ def reconciliation(store, database, output):
         name: 0
         for name in ("market_snapshots", "orderbook_snapshots", "orderbook_levels", "settlements")
     }
+    # Hash trusted typed rows directly; never deserialize pickle. Both passes
+    # use the pinned runtime/schema, preserving types and strings without
+    # converting 100M+ level timestamps back to text.
     digest = hashlib.sha256()
 
     def key(item):
@@ -95,7 +102,7 @@ def reconciliation(store, database, output):
     for (hour, table, identity, ticker), group in itertools.groupby(store._audit_rows(), key):
         records = []
         for _, _, row in group:
-            digest.update((oracle.encode([hour, table, normalize(row)]) + "\n").encode())
+            digest.update(pickle.dumps((hour, table, row), protocol=5))
             counts[table] += 1
             records.append(row)
         if table == "settlements":
@@ -112,11 +119,14 @@ def reconciliation(store, database, output):
             actual = [market_actual(row) for row in records]
             target = [expected]
         else:
-            actual = [
-                {k: normalize(v) for k, v in row.items() if k != "available_date"}
-                for row in records
-            ]
             target = [expected["header"]] if table == "orderbook_snapshots" else expected["levels"]
+            header = expected["header"]
+            times = {
+                field: oracle.timestamp(header[field]) for field in ("available_at", "requested_at")
+            }
+            times["available_date"] = times["available_at"].date()
+            target = [{**row, **times} for row in target]
+            actual = records
         require_equal(actual, target, f"{table}/{identity}/{ticker}")
         seen.execute("INSERT INTO matched VALUES (?,?,?)", (table, identity, ticker))
     seen.commit()
@@ -133,6 +143,11 @@ def reconciliation(store, database, output):
     }
     for table, total in expected_counts.items():
         require_equal(counts[table], total, f"{table} row count")
+    require_equal(
+        (store.root / "manifest.json").read_bytes(),
+        manifest_bytes,
+        "Store manifest changed during audit",
+    )
     stats = db.execute(
         "SELECT kind,count(*),sum(configured_items),sum(explained_empty) "
         "FROM envelopes WHERE status BETWEEN 200 AND 299 GROUP BY kind"
@@ -141,12 +156,17 @@ def reconciliation(store, database, output):
         "rows": counts,
         "expected_rows": expected_counts,
         "successful_envelopes": stats,
+        "configured_envelopes": db.execute(
+            "SELECT kind,count(*),sum(configured_items),sum(explained_empty) "
+            "FROM envelopes WHERE id IN (SELECT id FROM evidence) GROUP BY kind"
+        ).fetchall(),
+        "http_statuses": db.execute(
+            "SELECT status,count(*) FROM envelopes GROUP BY status"
+        ).fetchall(),
         "full_row_sha256": digest.hexdigest(),
         "unmatched": 0,
     }
     save(output / "reconciliation.json", result)
-    save(output / "manifest-first.json", json.loads((store.root / "manifest.json").read_text()))
-    (output / "manifest-first.bytes").write_bytes((store.root / "manifest.json").read_bytes())
     db.close()
     seen.close()
     return result
@@ -159,7 +179,7 @@ def fingerprint(store):
         for name in ("market_snapshots", "orderbook_snapshots", "orderbook_levels", "settlements")
     }
     for hour, table, row in store._audit_rows():
-        digest.update((oracle.encode([hour, table, normalize(row)]) + "\n").encode())
+        digest.update(pickle.dumps((hour, table, row), protocol=5))
         counts[table] = counts.get(table, 0) + 1
     return {"rows": counts, "full_row_sha256": digest.hexdigest()}
 

@@ -224,6 +224,17 @@ def render(output):
         )
     )
     text.append(
+        table(
+            ["2xx configured envelope class", "Envelopes", "Configured items", "Explained empties"],
+            reconcile["configured_envelopes"],
+        )
+    )
+    text.append(
+        f"All raw HTTP status counts: `{reconcile['http_statuses']}`. "
+        f"Parser raw-only counts: {first['raw_only_market_rows']:,} market rows and "
+        f"{first['raw_only_books']:,} books.\n"
+    )
+    text.append(
         "Market empties count envelopes; book empties count individual configured books. "
         "Empty books still have stored headers. Every stored source/ticker/level was compared "
         "to its raw projection; unmatched observations: 0.\n"
@@ -251,6 +262,7 @@ def render(output):
     text.append("## Timing and memory\n")
     names = [
         "download",
+        "attempt-1-index",
         "parse-first",
         "index",
         "reconcile",
@@ -281,6 +293,7 @@ def render(output):
             (line.strip() for line in log.splitlines() if line.startswith("E ")),
             next((line for line in log.splitlines() if "FAILED" in line), "See transcript"),
         )
+        excerpt = excerpt[:300]
         proofrows.append(
             [
                 title,

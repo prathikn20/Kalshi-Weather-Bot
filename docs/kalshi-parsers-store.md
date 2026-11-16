@@ -363,6 +363,9 @@ settlement parser, spike adapter, live-order code or full-history parse was adde
 
 ## Full-history parse
 
+The sample-only statements above record the initial parser implementation.
+This section describes the full-history verification workflow.
+
 Run acquisition and parsing on the Mac. Use an isolated code worktree and explicit
 paths into the main checkout for `raw/`, `data/kalshi/`, and ignored `state/` artifacts.
 Before downloading, inspect compaction and raw-sync read-only on the VM: no source
@@ -447,6 +450,8 @@ reference from other production modules. It must never feed a model or backtest.
 Run `uv run --locked --group ndfd python scripts/prove_full_history.py` alone to
 observe deliberate failures for every required property, plus duplicate conflicts
 and the audit-only scope guard. The proof script restores code after each mutation;
-its test stores are temporary and never modify the published store. Audit artifacts
+its test stores are temporary and never modify the published store. After every
+check passes, render the report with `uv run --locked python -m
+scripts.report_full_history`. Audit artifacts
 and proof transcripts live under ignored `state/full-history-parse-2026-11-16/` in
 the main checkout. No raw, Parquet, or state artifacts belong in the PR.

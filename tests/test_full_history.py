@@ -161,7 +161,7 @@ def test_the_audit_inventory_is_private_has_no_as_of_and_has_no_production_calle
     offenders = [
         str(path)
         for path in (ROOT / "src/kwb").rglob("*.py")
-        if path.name != "store.py" and "_audit_rows" in path.read_text()
+        if path != ROOT / "src/kwb/store.py" and "_audit_rows" in path.read_text()
     ]
     assert offenders == []
 
@@ -307,3 +307,17 @@ def test_the_original_manifest_capture_is_immutable_even_after_the_store_changes
     with pytest.raises(ValueError, match="refusing to replace"):
         audit.capture(root, output)
     assert (output / "settlements-before/manifest.json").read_bytes() == original
+
+
+def test_reconciliation_rejects_a_manifest_change_during_its_inventory(audit_data):
+    _, store, database, output = audit_data
+    original = store._audit_rows
+
+    def changed_manifest():
+        yield from original()
+        manifest = store.root / "manifest.json"
+        manifest.write_text(manifest.read_text() + "\n")
+
+    store._audit_rows = changed_manifest
+    with pytest.raises(AssertionError, match="manifest changed during audit"):
+        audit.reconciliation(store, database, output)
