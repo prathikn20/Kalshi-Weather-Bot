@@ -45,6 +45,10 @@ class InvalidBody(CheckError):
     """A response cannot supply evidence, but other fresh responses may."""
 
 
+class EmptyListing(CheckError):
+    """A valid listing has no records and cannot supply evidence."""
+
+
 class UnreadableEnvelope(CheckError):
     """A gzip read failed, possibly because collection is still writing it."""
 
@@ -56,12 +60,14 @@ class CheckStats:
     skipped_oversized: int = 0
     skipped_invalid_body: int = 0
     skipped_unreadable: int = 0
+    skipped_empty: int = 0
 
     def log_fields(self) -> str:
         return (
             f"skipped_oversized={self.skipped_oversized} "
             f"skipped_invalid_body={self.skipped_invalid_body} "
-            f"skipped_unreadable={self.skipped_unreadable}"
+            f"skipped_unreadable={self.skipped_unreadable} "
+            f"skipped_empty={self.skipped_empty}"
         )
 
 
@@ -217,7 +223,7 @@ def qualifying_endpoint(envelope: dict) -> str | None:
         if not isinstance(records, list):
             raise InvalidBody("invalid_markets_list")
         if not records:
-            raise InvalidBody("empty_response_list")
+            raise EmptyListing("empty_response_list")
         if any(
             not isinstance(r, dict) or not isinstance(r.get("ticker"), str) or not r["ticker"]
             for r in records
@@ -229,7 +235,7 @@ def qualifying_endpoint(envelope: dict) -> str | None:
         if not isinstance(records, list):
             raise InvalidBody("invalid_orderbooks_list")
         if not records:
-            raise InvalidBody("empty_response_list")
+            raise EmptyListing("empty_response_list")
         if any(
             not isinstance(r, dict)
             or not isinstance(r.get("ticker"), str)
@@ -274,6 +280,10 @@ def inspect_collection(
             raise CheckError("envelope_outside_freshness_window")
         try:
             endpoint = qualifying_endpoint(envelope)
+        except EmptyListing:
+            stats.skipped_empty += 1
+            check_budget(deadline)
+            continue
         except InvalidBody:
             stats.skipped_invalid_body += 1
             check_budget(deadline)

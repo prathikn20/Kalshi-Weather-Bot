@@ -15,16 +15,18 @@ batch membership; those are parser responsibilities. Non-2xx responses and
 irrelevant endpoints cannot provide evidence. The reader stops once both kinds
 of evidence have been established; it does not audit older files for corruption.
 
-Three kinds of non-evidence candidates are skipped and counted:
+Four kinds of non-evidence candidates are skipped and counted:
 
 - `skipped_oversized`: an envelope exceeds the unchanged 16 MiB read limit.
 - `skipped_invalid_body`: a 2xx market/book body is base64-encoded, cannot be
-  parsed as strict JSON, or fails its list/record checks. Empty lists fail the
-  heartbeat's non-empty-list requirement and are counted here too.
+  parsed as strict JSON, or fails its list type or record checks.
 - `skipped_unreadable`: a gzip stream cannot be opened or read completely,
   including a missing file, permission error, invalid header, truncated stream,
   decompression error or CRC failure. The collector writes final filenames
   directly, so a read can race a write.
+- `skipped_empty`: a parsed 2xx `/markets` or batch order-book response has a
+  correctly typed empty list. Inactive series normally return empty markets;
+  these supply no evidence and do not increment `skipped_invalid_body`.
 
 A skipped candidate supplies no evidence. A window containing only unusable
 responses still sends `/fail` with `missing_fresh_market_or_orderbook_evidence`.
@@ -34,7 +36,7 @@ fatal structural/operational errors even when valid older responses exist.
 Only gzip stream I/O and relevant response-body validation use skippable error
 types; the check does not catch all archive errors and continue.
 
-All three counts appear in success and failure logs, including configuration
+All four counts appear in success and failure logs, including configuration
 and ping failures. Only fixed diagnostics and counts are logged; no ping secrets,
 raw response text or arbitrary exception details are forwarded. A structural
 fault, exhausted budget, or unexpected check exception sends a sanitized `/fail`
@@ -233,7 +235,7 @@ batch-to-single fallback path; no collector code changes are part of this fix.
 | 301/404/429/500 response from discovery, markets, batch or fallback; invalid JSON body | Already ignored after envelope validation because the status is non-2xx. It does not hide older evidence. |
 | Base64 body on non-2xx response, or on 2xx `/series` | Already ignored. Body parsing/decoding is not attempted for non-evidence endpoints/statuses. |
 | Non-JSON 2xx `/series` body | Already ignored; discovery is not evidence. |
-| Empty `markets`/`orderbooks` listing | Skipped and counted as `skipped_invalid_body` because the non-empty-list check fails. Other fresh non-empty evidence may qualify. |
+| Empty `markets`/`orderbooks` listing | Valid no-evidence input, counted as `skipped_empty` without incrementing `skipped_invalid_body`. Other fresh non-empty evidence may qualify. |
 | Valid per-market fallback, including a book with no liquidity | Qualifies as book evidence. No masking failure. |
 | Oversized envelope from any endpoint/status, including the above cases | Now skipped and counted. It cannot provide evidence; only other validated envelopes can make the run succeed. |
 | Base64 2xx market/book body; invalid/duplicate/nonfinite or excessively nested JSON; missing or invalid market/book structure, tickers or levels | Skipped and counted as `skipped_invalid_body`; only valid older/fallback responses can qualify. An invalid-only window still fails for missing fresh evidence. |
@@ -252,6 +254,9 @@ encounter discovery.
 
 ## Invalid response and incomplete gzip follow-up (2026-11-15)
 
+This section records the PR #23/#24 proofs. Their empty-list counter
+classification is corrected by the empty-listing follow-up below.
+
 A malformed batch can be followed by healthy per-market fallback books. Its
 invalid body is rejected as evidence without preventing the check from reaching
 the valid fallback and market snapshots. Likewise, an incomplete gzip file can
@@ -263,7 +268,7 @@ The implementation distinguishes `InvalidBody` and `UnreadableEnvelope` from
 structural `CheckError` failures. The gzip-only exception boundary wraps opening,
 reading and closing the stream; complete envelope parsing and origin/timestamp
 validation stay outside it. All skip paths still check the existing deadline.
-One per-run stats object supplies all three fields to every outcome log.
+One per-run stats object supplies all skip-count fields to every outcome log.
 
 The original gzip-only failure test initially failed because it contained valid
 older evidence. Its failure assertion is retained for a window containing only
@@ -289,7 +294,7 @@ freshness, compaction, cost-budget and secret tests remain active.
 The owner confirmed the Healthchecks.io dashboard was Up at 18:55 UTC after the
 real 18:40:56 success with `skipped_oversized=1`. No additional status credential
 or badge is used. The next deployment is verified from the natural `:40` timer
-journal line, including all three skip counts; the collector is never restarted.
+journal line, including all current skip counts; the collector is never restarted.
 
 
 The zero-byte write race is covered explicitly: Python's gzip reader returns
@@ -300,3 +305,35 @@ The empty-file variant of
 `test_unreadable_gzip_does_not_mask_older_valid_evidence` failed before this guard
 with `assert 1 == 0` (1 failed in 0.14s). Removing the guard reproduces that
 failure; the `empty_envelope` structural case verifies the distinction.
+
+
+## Empty listings are normal no-evidence responses
+
+Inactive series are intentionally polled, and their 2xx responses routinely
+contain `"markets": []`. A valid empty market or batch-book list supplies no
+fresh evidence, but it is not malformed. `skipped_empty` records these candidates
+separately so `skipped_invalid_body` can signal genuine malformed JSON, base64
+bodies, wrong list types, or bad records. The missing-evidence failure still
+applies if no valid market/book pair exists in the window. Only the envelopes
+actually inspected before sufficient evidence is found contribute to counters.
+
+`EmptyListing` is a separate skip signal from `InvalidBody`. The handler keeps
+the existing deadline check and adds no new reads, provider calls, or changes to
+freshness, archive integrity checks, gzip handling, or the 16 MiB cap. All outcome
+logs include `skipped_empty` alongside the three existing counters. Empty cases
+have moved out of the malformed-body fixture matrix into dedicated assertions
+for empty markets, empty batch books, both together, and empty-only windows.
+The success test reuses the committed real empty-market envelope in
+`tests/fixtures/kalshi_raw/2026-10-07/2026-10-07T142658.927708Z.json.gz`.
+
+| Test | What it checks | Deliberate break and observed failure |
+| --- | --- | --- |
+| `test_empty_listings_with_valid_evidence_succeed_without_invalid_body_skips` | Empty markets, empty batch books, and both together allow success with `skipped_invalid_body=0` and the exact separate empty count. | Restore the old `InvalidBody` classification: **3 failed**, exit 1. Remove the empty increment: **3 failed**, exit 1. |
+| `test_empty_only_windows_fail_without_counting_empty_lists_as_invalid_bodies` | Empty input alone cannot establish health; the reason is missing fresh evidence, invalid count is zero, and empty count is two. | Restore old classification: **1 failed**, exit 1, wrong counter values. Accept empty lists as evidence: **1 failed**, exit 1, false success rejected. |
+| `test_all_skip_counts_survive_a_later_ping_failure` | A later ping failure retains independent empty, invalid-body and unreadable counts without logging a secret-bearing exception. | Restore old empty classification: **1 failed**, exit 1, empty and invalid counters conflated. |
+
+All five mutants were reverted and bytecode caches invalidated between edits.
+Full transcripts are retained locally under the main checkout's ignored
+`state/heartbeat-empty-lists/proofs/` directory. The full suite and Ruff run with
+`uv run --locked --group ndfd ...`, matching the current CI dependency group.
+No decision or phase-plan text changes are part of this follow-up.
