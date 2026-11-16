@@ -137,6 +137,8 @@ def newest_candidates(
 
 def read_envelope(path: Path) -> dict | None:
     try:
+        if path.stat().st_size == 0:
+            raise UnreadableEnvelope("empty_gzip")
         with gzip.open(path, "rb") as stream:
             payload = stream.read(MAX_ENVELOPE_BYTES + 1)
     except (OSError, EOFError, zlib.error):

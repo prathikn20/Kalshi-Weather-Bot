@@ -562,13 +562,15 @@ def test_a_window_of_only_invalid_response_bodies_fails_with_missing_fresh_evide
     )
 
 
-@pytest.mark.parametrize("damage", ["not_gzip", "truncated", "crc", "permission"])
+@pytest.mark.parametrize("damage", ["empty", "not_gzip", "truncated", "crc", "permission"])
 def test_unreadable_gzip_does_not_mask_older_valid_evidence(healthy, monkeypatch, caplog, damage):
     root, calls = healthy
     caplog.set_level(logging.INFO)
     bad = put(root, BATCH, NOW - timedelta(seconds=5))
     data = bad.read_bytes()
-    if damage == "not_gzip":
+    if damage == "empty":
+        bad.write_bytes(b"")
+    elif damage == "not_gzip":
         bad.write_bytes(b"broken gzip")
     elif damage == "truncated":
         bad.write_bytes(data[:-4])
@@ -617,6 +619,7 @@ def test_a_window_of_only_unreadable_gzip_fails_with_missing_fresh_evidence(heal
         "origin",
         "non_file",
         "envelope_json",
+        "empty_envelope",
         "encoding",
         "body_type",
     ],
@@ -647,8 +650,9 @@ def test_structural_archive_faults_still_fail_when_older_valid_evidence_exists(
         envelope["body_encoding"] = "unknown"
     elif fault == "body_type":
         envelope["body"] = {}
-    if fault == "envelope_json":
-        newest.write_bytes(gzip.compress(b"{"))
+    if fault in {"envelope_json", "empty_envelope"}:
+        payload = b"{" if fault == "envelope_json" else b""
+        newest.write_bytes(gzip.compress(payload))
         expected_reason = "unreadable_or_malformed_evidence"
     elif fault != "non_file":
         newest.write_bytes(gzip.compress(json.dumps(envelope).encode()))
