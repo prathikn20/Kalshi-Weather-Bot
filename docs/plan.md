@@ -25,7 +25,7 @@ Each question ends with a one-line answer in `docs/decisions.md`.
 3. Kalshi API: what history it returns (trades, candles, settled markets, order books) and rate limits.
 4. Deferred to January 2027 with Baseline 2 (2026-11-13). GEFS on AWS Open Data: contents, how far back, and the measured delay from run initialization to files appearing.
 5. Answered. Whether an archive of past NWS forecasts exists: AWS NDFD (`noaa-ndfd-pds`), evaluated in `notebooks/02_nws_forecast_archive.ipynb` (2026-11-13, source switch).
-6. Answered (2026-11-13). City choice: Los Angeles (KXHIGHLAX), NYC runner-up, by TWC-period volume, conditional on the KLAX NDFD cell check in Phase 2.
+6. Answered (2026-11-15, superseding 2026-11-13). City choice: New York City (KXHIGHNY, KNYC). Los Angeles led on volume but failed the pre-registered KLAX NDFD check on MAE; it is the first candidate when cities are added.
 7. Answered (2026-11-12, refining 2026-11-07). Settlement source: what KX* series settle on, how The Weather Company's maximum relates to the NWS CLI value, and when the series switched.
 
 ### Parsers, store and heartbeat (scope cut 2026-11-14)
@@ -38,11 +38,11 @@ Only what the mid-December milestone needs runs before Phase 2.
 4. Done (2026-11-15, PR #20). Heartbeat for the Kalshi collector: a VM timer checks every 5 minutes that fresh Kalshi market and order-book envelopes are on disk and pings an external dead-man's switch (healthchecks.io), which emails when pings stop or report failure.
 5. After the milestone: `collectors/obs.py` (station observations) and `collectors/climate.py` (Daily Climate Report). Phase 2 uses IEM history for observations and CLI highs; `nws_forecasts` is built with NDFD point extraction in Phase 2.
 
-Done when a DuckDB query returns, for any past moment in the collection window, every Kalshi market snapshot and order book the bot could have seen at that moment, and the leakage test passes.
+Done when a DuckDB query returns, for any past moment in the collection window, every Kalshi market snapshot and order book the bot could have seen at that moment, and the leakage test passes. Met (2026-11-16, PR #26): full-history parse with an independent raw-envelope oracle; gaps are listed in the coverage ledger.
 
 ## Phase 2: baselines and scoring (by mid-December 2026)
 
-Backfill NDFD MaxT and station history. Point extraction selects the CONUS grid and the KLAX cell; confirm the cell's centre is on land and its MaxT bias is not anomalous versus KNYC before committing to LA (2026-11-13). Baseline 1: bias-corrected NWS with a spread, using NWS forecasts from the AWS NDFD archive for both backfill and live. Baseline 2 (GEFS member counting) is deferred to January 2027 with Phase 3 (2026-11-13); the mid-December milestone needs only Baseline 1. Build `eval/scoring.py` (CRPS, per-bracket Brier, reliability diagrams) before any neural work.
+Backfill NDFD MaxT and station history. Point extraction (PR #21) selects the CONUS grid and each station's cell; the first city is NYC (KNYC) after the KLAX check (2026-11-15). Baseline 1: bias-corrected NWS with a spread, using NWS forecasts from the AWS NDFD archive for both backfill and live. Baseline 2 (GEFS member counting) is deferred to January 2027 with Phase 3 (2026-11-13); the mid-December milestone needs only Baseline 1. Build `eval/scoring.py` (CRPS, per-bracket Brier, reliability diagrams) before any neural work.
 
 Done when there is a number for whether Baseline 1 beats market-implied probabilities on collected days. Milestone: mid-December 2026.
 
