@@ -290,3 +290,13 @@ The owner confirmed the Healthchecks.io dashboard was Up at 18:55 UTC after the
 real 18:40:56 success with `skipped_oversized=1`. No additional status credential
 or badge is used. The next deployment is verified from the natural `:40` timer
 journal line, including all three skip counts; the collector is never restarted.
+
+
+The zero-byte write race is covered explicitly: Python's gzip reader returns
+empty data for a zero-byte file without raising. The reader checks compressed
+file size before decoding and counts that file as `skipped_unreadable`. A
+complete gzip stream containing empty envelope text remains a structural error.
+The empty-file variant of
+`test_unreadable_gzip_does_not_mask_older_valid_evidence` failed before this guard
+with `assert 1 == 0` (1 failed in 0.14s). Removing the guard reproduces that
+failure; the `empty_envelope` structural case verifies the distinction.
