@@ -68,6 +68,9 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 - 2026-11-15: A station's NDFD MaxT forecast for climate day D is the single 12-hour MaxT period contained in D's local-standard-time day (midnight to midnight, the CLI convention); zero or several candidates raise. TWC's own window is not established, so this aligns with Kalshi labels only as far as TWC follows the CLI day.
 - 2026-11-15: NDFD GRIB objects are cached on the Mac under data/ndfd/ (gitignored) with a manifest of key, size, ETag, SHA-256 and received_at, and are not mirrored to the VM or the backup bucket. NOAA's public bucket is the raw archive, re-downloadable back to 2020-04-16, and mirroring roughly 67 GB for a four-decision backfill does not fit the free-tier VM and bucket. Limit: if NOAA removes history, the local cache is the only copy.
 
+- 2026-11-15: Supersedes the 2026-11-13 first-city line: the first city is New York City (KXHIGHNY, station KNYC). The pre-registered KLAX check failed one of three criteria: over climate days 2026-10-08 to 2026-11-14 (38 days, as_of 18:00 UTC on D-1, provisional L = 2 h), NDFD MaxT MAE was 3.16°F at KLAX versus 1.55°F at KNYC, above the 1.5x limit of 2.33°F. The KLAX cell centre is on land (+4,656.7 m from NOAA CUSP shoreline, 5 m accuracy) and its mean error (-1.42°F versus +0.13°F) is inside the bias limit. The MAE criterion cannot separate a poor cell from a harder-to-forecast season; that limit was accepted when the criteria were fixed before the data. Los Angeles remains the first candidate when cities are added. Method: docs/ndfd-point-extraction.md.
+- 2026-11-15: Land checks for NDFD cells use NOAA's Continually Updated Shoreline Product (CUSP) and its per-segment horizontal accuracy, because no verifiable public NDFD land-sea mask was found; a cell centre whose shoreline distance is within that accuracy is indeterminate, not land or water. KLAX measured +4,656.7 m against 5 m accuracy.
+
 ## Open (answer during the spike)
 
 - Settlement value: how TWC's reported maximum relates to the NWS CLI value, and when KX* series switched: answered 2026-11-12 (refines 2026-11-07).
@@ -76,5 +79,5 @@ One line per decision: date, decision, reason. Newest at the bottom. Append-only
 - Kalshi API history available and rate limits:
 - GEFS on AWS: coverage, format, publication delay: deferred to January 2027 (2026-11-13).
 - Archive of past NWS point forecasts: answered 2026-11-13 (AWS NDFD; source-switch line).
-- City: answered 2026-11-13 (Los Angeles, conditional on the KLAX cell check).
+- City: answered 2026-11-15 (New York City; Los Angeles failed the KLAX check and is the first candidate when cities are added).
 - Weekly hours:

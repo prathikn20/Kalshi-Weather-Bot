@@ -360,3 +360,93 @@ After reverting all 15 mutants, `uv sync --locked` succeeded, `uv run --locked
 pytest -q` reported **354 passed**, and Ruff lint and formatting checks passed.
 The supplied plan/decision/ignore edits were applied verbatim. No collector,
 settlement parser, spike adapter, live-order code or full-history parse was added.
+
+## Full-history parse
+
+Run acquisition and parsing on the Mac. Use an isolated code worktree and explicit
+paths into the main checkout for `raw/`, `data/kalshi/`, and ignored `state/` artifacts.
+Before downloading, inspect compaction and raw-sync read-only on the VM: no source
+may have more than two loose UTC hours, the latest sync must report `pending=0`, and
+compaction must have finished every eligible hour. Compare bucket hours with the VM
+filesystem and the read-only sync ledger. Investigate missing production data before
+parsing; committed `tests/fixtures/` copies are not production raw. Keep Mac-only
+loose captures in place and flag them as unbacked-up; this workflow does not upload them.
+
+From the code worktree:
+
+```sh
+uv run --locked python -m kwb.ops.download --source kalshi \
+  --root /Users/prathik/code/Kalshi-Weather-Bot \
+  --manifest /Users/prathik/code/Kalshi-Weather-Bot/state/raw-download.json
+```
+
+Record the downloaded inventory (names, generations, sizes, checksums) and freeze
+the original store manifest before parsing so settlements can be checked against
+immutable original generations. Preserve acquisition wall time and maximum RSS with
+macOS `/usr/bin/time -l`. The final inventory defines the completed archive window;
+concurrent later uploads do not silently enter the audited input set.
+
+```sh
+uv run --locked python -m scripts.check_full_history capture
+uv run --locked python -m scripts.check_full_history index
+uv run --locked python -m kwb.parse.kalshi \
+  /Users/prathik/code/Kalshi-Weather-Bot/raw/kalshi \
+  --store /Users/prathik/code/Kalshi-Weather-Bot/data/kalshi \
+  --report /Users/prathik/code/Kalshi-Weather-Bot/state/full-history-parse-2026-11-16/parse-first.json
+uv run --locked python -m scripts.check_full_history reconcile
+uv run --locked python -m scripts.check_full_history pilot
+uv run --locked python -m scripts.check_full_history compare
+uv run --locked python -m scripts.check_full_history settlements
+```
+
+Repeat the identical parse with `parse-second.json` as its report, then run
+`uv run --locked python -m scripts.check_full_history rerun`. The checker compares
+all stored row fingerprints/counts and requires byte-identical manifest contents.
+The parser's `published_hours` counts processed hours, not newly added observations.
+
+The independent oracle in `scripts/full_history_oracle.py` imports no `kwb` module.
+It independently streams gzip and tar/zstd members, checks duplicate identities and
+bytes, decodes envelopes/bodies, and indexes configured observations in disposable
+SQLite. Compressed records bound its disk footprint; they preserve exact served
+strings. It uses each envelope's receipt time and selects latest-per-ticker before
+applying the served close time. Absence from a listing does not invent a closure.
+Observed empty books replace older liquidity, while no observation yields `None`.
+The runner checks tickers, served market fields, provenance, book headers and every
+level, including closed and book-only tickers. It also checks availability on all
+four accessors and compares settlements against the original manifest at sampled
+moments and all original settlement receipt boundaries.
+
+Sampling uses seed `20261116` uniformly over integer microseconds between first and
+last raw envelopes. A four-moment pilot measures per-call p50/p95/max latency and
+parallel throughput before choosing between 100 and 300 uniform moments for about
+two hours of comparison. Every gap endpoint and the first/last envelope are added
+regardless of that budget. If the mandatory endpoints and 100-moment floor exceed
+the target, the pilot reports that estimate rather than reducing coverage silently.
+Four worker processes issue normal public accessor calls; the store is not optimized
+or bypassed. Accessor latency is a separate Phase 4 backtest planning finding.
+
+The ledger contains one row per UTC minute and configured series (`minutes.csv`),
+with separate counts of successful market listings and order-book envelopes. Batch
+responses count once per covered series. `hours.csv` includes all hours, including
+missing ones, and labels bucket, Mac-local only, or both, with archive/loose counts.
+`gaps.csv` lists every per-series/feed receipt gap longer than two minutes, including
+leading/trailing uncovered intervals. Coverage JSON records first/last receipt times,
+UTC dates observed, and minute ranges where one series/feed was absent while another
+configured series was present. Missing bucket ranges and available journal evidence
+remain explicit in the ledger and report; Mac-only partial hours are not presented
+as complete coverage.
+
+Reconciliation compares every stored source/ticker observation and all book levels
+against raw, with successful empty listings and empty books explicitly counted.
+Non-success responses and raw-only series remain separately accounted for. The
+private `Store._audit_rows()` inventory streams every published row, has no `as_of`,
+and is audit-only: only scripts/tests may call it. A repository test prohibits its
+reference from other production modules. It must never feed a model or backtest.
+
+`tests/test_full_history.py` exercises the comparisons on real committed fixtures.
+Run `uv run --locked --group ndfd python scripts/prove_full_history.py` alone to
+observe deliberate failures for every required property, plus duplicate conflicts
+and the audit-only scope guard. The proof script restores code after each mutation;
+its test stores are temporary and never modify the published store. Audit artifacts
+and proof transcripts live under ignored `state/full-history-parse-2026-11-16/` in
+the main checkout. No raw, Parquet, or state artifacts belong in the PR.

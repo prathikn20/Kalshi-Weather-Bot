@@ -317,6 +317,22 @@ class Store:
             db.execute("SET TimeZone='UTC'")
             return db.sql(sql, params=params).to_arrow_table().to_pylist()
 
+    def _audit_rows(self) -> Iterator[tuple[str, str, dict]]:
+        """Audit-only physical inventory; scripts/tests only, never a data accessor.
+
+        Intentionally has no as_of: verification needs every published observation,
+        including future rows. Model/backtest consumers must use public accessors.
+        Pin the manifest once and stream bounded batches from immutable generations.
+        """
+        import pyarrow.parquet as pq
+
+        manifest = self._manifest()
+        for hour, entry in sorted(manifest["hours"].items()):
+            for table, relative in sorted(entry["files"].items()):
+                for batch in pq.ParquetFile(self.root / relative).iter_batches(batch_size=8192):
+                    for row in batch.to_pylist():
+                        yield hour, table, row
+
     def get_market_snapshots(self, series: str, as_of: datetime) -> list[MarketSnapshot]:
         as_of = aware_utc(as_of)
         files = self._files(self._manifest(), "market_snapshots", as_of)
