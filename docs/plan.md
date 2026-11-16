@@ -38,7 +38,7 @@ Only what the mid-December milestone needs runs before Phase 2.
 4. Done (2026-11-15, PR #20). Heartbeat for the Kalshi collector: a VM timer checks every 5 minutes that fresh Kalshi market and order-book envelopes are on disk and pings an external dead-man's switch (healthchecks.io), which emails when pings stop or report failure.
 5. After the milestone: `collectors/obs.py` (station observations) and `collectors/climate.py` (Daily Climate Report). Phase 2 uses IEM history for observations and CLI highs; `nws_forecasts` is built with NDFD point extraction in Phase 2.
 
-Done when a DuckDB query returns, for any past moment in the collection window, every Kalshi market snapshot and order book the bot could have seen at that moment, and the leakage test passes.
+Done when a DuckDB query returns, for any past moment in the collection window, every Kalshi market snapshot and order book the bot could have seen at that moment, and the leakage test passes. Met (2026-11-16, PR #26): full-history parse with an independent raw-envelope oracle; gaps are listed in the coverage ledger.
 
 ## Phase 2: baselines and scoring (by mid-December 2026)
 

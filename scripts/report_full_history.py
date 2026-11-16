@@ -3,7 +3,7 @@
 import argparse
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 PROPERTIES = [
@@ -48,8 +48,21 @@ def measurements(root, name):
     text = (root / (name + "-time.log")).read_text()
     wall = re.search(r"([\d.]+) real", text)
     rss = re.search(r"(\d+)\s+maximum resident set size", text)
+    paused = 0.0
+    schedule = root / "resource-scheduling.json"
+    if schedule.exists():
+        for item in load(root, "resource-scheduling.json")["pauses"]:
+            if item["operation"] == name:
+                if item["resumed_at"] is None:
+                    raise AssertionError(f"{name} remains paused")
+                paused += (
+                    datetime.fromisoformat(item["resumed_at"])
+                    - datetime.fromisoformat(item["paused_at"])
+                ).total_seconds()
     return {
         "seconds": float(wall[1]) if wall else None,
+        "paused_seconds": round(paused, 2),
+        "active_wall_seconds": round(float(wall[1]) - paused, 2) if wall else None,
         "peak_rss_bytes": int(rss[1]) if rss else None,
     }
 
@@ -135,6 +148,13 @@ def render(output):
     text.append(
         "The archive-hour ranges differ from envelope gaps: the Mac has partial captures "
         "in T14 and T15, and the suspension starts/ends partway through archived hours.\n"
+    )
+    text.append(
+        "For the initial October 7 gap, docs/plan.md records the first VM deployment "
+        "on October 7; collector implementation commit 1ab6aeb is dated 17:23:28 UTC. "
+        "No retained collector-service journal entries were found before 17:30 UTC. "
+        "These are setup-period evidence, not proof of why hour 16 lacks production raw. "
+        "The later suspension is directly recorded in vm-journal-evidence.txt.\n"
     )
     text.append("### Unbacked-up Mac-only production data\n")
     text.append(
@@ -269,6 +289,7 @@ def render(output):
         "index",
         "reconcile",
         "pilot",
+        "budget",
         "oracle",
         "parse-second",
         "rerun",
@@ -276,16 +297,32 @@ def render(output):
     ]
     text.append(
         table(
-            ["Operation", "Wall seconds", "Peak RSS bytes"],
+            [
+                "Operation",
+                "Wall seconds",
+                "Paused seconds",
+                "Active wall seconds",
+                "Peak RSS bytes",
+            ],
             [
                 [
                     name,
                     measurements(output, name)["seconds"],
+                    measurements(output, name)["paused_seconds"],
+                    measurements(output, name)["active_wall_seconds"],
                     measurements(output, name)["peak_rss_bytes"],
                 ]
                 for name in names
             ],
         )
+    )
+    text.append(
+        "Host memory pressure (about 21 GiB of swap in use) required pausing the "
+        "reconciliation and second parse behind the oracle. Wall time includes those "
+        "scheduling waits; active wall time subtracts the recorded pause intervals. "
+        "Peak RSS is the value reported by macOS time for each command. "
+        "The initial uncompressed-index attempt was interrupted and restarted with "
+        "compressed records to bound disk use.\n"
     )
     text.append("## Required-property tests and observed bite proofs\n")
     proofrows = []
@@ -308,7 +345,8 @@ def render(output):
         table(["Property", "Test", "Checks", "Deliberate failure and restoration"], proofrows)
     )
     text.append(
-        "Additional deliberate failures prove duplicate conflicts, the sampling floor "
+        "Additional deliberate failures prove duplicate conflicts, distinct target dates, "
+        "the sampling floor "
         "and the audit-only scope "
         "guard. The proof script restores source bytes in finally; tests use temporary stores. "
         "Complete transcripts: `proofs/`. Existing leakage tests and the full suite also pass; "
@@ -327,6 +365,9 @@ def render(output):
         "It is private, documented audit-only, and barred from other production modules.\n"
         "- Closed and book-only tickers are still checked: the book accessor has no close-time "
         "filter, whereas market snapshots filter the latest observed schedule.\n"
+        "- Rerun fingerprints serialize trusted typed rows under the same pinned runtime, "
+        "preserving every field's type and value. This avoids formatting all levels as text; "
+        "the digest compares the two passes of this run only.\n"
     )
     text.append("## Out-of-scope findings\n")
     text.append(
@@ -349,6 +390,22 @@ def render(output):
             ],
         )
     )
+    text.append("Full comparison per-call latency with the planned worker count:\n")
+    text.append(
+        table(
+            ["Accessor", "Calls", "p50 seconds", "p95 seconds", "Max seconds"],
+            [
+                [
+                    name,
+                    stats["calls"],
+                    stats["p50_seconds"],
+                    stats["p95_seconds"],
+                    stats["max_seconds"],
+                ]
+                for name, stats in oracle["latency"].items()
+            ],
+        )
+    )
     text.append(
         "The two Mac-only hours remain unbacked-up. The historical suspend gap is unrecoverable "
         "from the VM or bucket. Neither finding was fixed in this task.\n"
@@ -357,6 +414,17 @@ def render(output):
     start = datetime.fromisoformat(coverage["first"]).date()
     end = datetime.fromisoformat(coverage["last"]).date()
     dates = (end - start).days + 1
+    target_seen = {datetime.fromisoformat(day).date() for day in ny["target_dates_observed"]}
+    target_start, target_end = min(target_seen), max(target_seen)
+    target_window = (target_end - target_start).days + 1
+    missing = [
+        target_start + timedelta(days=i)
+        for i in range(target_window)
+        if target_start + timedelta(days=i) not in target_seen
+    ]
+    missing_label = ", ".join(str(day) for day in missing)
+    if missing and (missing[-1] - missing[0]).days + 1 == len(missing):
+        missing_label = f"{missing[0]}–{missing[-1]}"
     text.append("## Draft decision, not applied\n")
     text.append(
         f"- 2026-11-16: Kalshi raw history has no bucket archives from 2026-10-11 16:00 UTC "
@@ -365,8 +433,10 @@ def render(output):
         f"KXHIGHNY has successful market envelopes on {ny['utc_days_with_markets']} of "
         f"{dates} UTC dates in the observed window; the suspension removes 16 complete UTC "
         f"dates (October 12–27), with partial October 11 and 28 retained. "
-        f"{len(ny['target_dates_observed'])} distinct market target dates were observed; "
-        "UTC collection dates are not a count of complete training/settlement days. "
+        f"{len(target_seen)} of {target_window} market target dates were observed; "
+        f"{len(missing)} target dates ({missing_label}) have no observations. "
+        "These counts include partial days and are not counts of complete "
+        "training/settlement days. "
         "Coverage gaps must remain explicit in evaluation. Evidence: full-history coverage "
         "ledger and VM journals.\n"
     )

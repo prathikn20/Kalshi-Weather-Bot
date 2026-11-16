@@ -70,6 +70,13 @@ CASES = [
         "selected = estimate(1)",
         "test_the_call_budget_uses_actual_ticker_visibility_and_preserves_the_sampling_floor",
     ),
+    (
+        "target-days",
+        "scripts/full_history_oracle.py",
+        "SELECT DISTINCT substr(ticker,instr(ticker,'-')+1,7)",
+        "SELECT substr(ticker,instr(ticker,'-')+1,7)",
+        "test_the_coverage_ledger_includes_every_minute_gap_and_hour_source",
+    ),
 ]
 
 

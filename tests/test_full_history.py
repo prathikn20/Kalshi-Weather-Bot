@@ -68,6 +68,8 @@ def test_the_coverage_ledger_includes_every_minute_gap_and_hour_source(audit_dat
     assert result["series"]["KXHIGHMIA"]["markets"]["first"] is None
     assert result["series"]["KXHIGHMIA"]["markets"]["absent_while_others_present"]
     assert result["series"]["KXHIGHLAX"]["markets"]["first"] == FIRST.isoformat()
+    assert result["series"]["KXHIGHLAX"]["utc_days_with_markets"] == 1
+    assert len(result["series"]["KXHIGHLAX"]["target_dates_observed"]) == 1
     assert (
         result["series"]["KXHIGHLAX"]["markets"]["last"]
         == (FIRST + timedelta(minutes=4)).isoformat()
